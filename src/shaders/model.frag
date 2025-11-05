@@ -9,6 +9,8 @@ uniform vec3 viewPos;
 uniform vec3 lightColor;
 uniform vec3 objectColor;
 
+uniform mat4 cameraMatrix;
+
 void main() {
     // ambient
     float ambientStrength = 0.1;

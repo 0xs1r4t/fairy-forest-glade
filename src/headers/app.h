@@ -23,5 +23,6 @@ private:
     std::string title_;
     Shader shader_;
     Renderer renderer_;
+    Camera camera_;
     Model *model_; // <--- load model at init time (pointer so we can construct after resolving paths)
 };

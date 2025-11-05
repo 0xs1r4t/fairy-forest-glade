@@ -1,4 +1,7 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "camera.h"
+
+#include <iostream>
 
 /**
  * @brief Construct a new Camera:: Camera object
@@ -22,6 +25,24 @@ Camera::Camera(int width, int height, glm::vec3 position)
     this->width = width;
     this->height = height;
     this->Position = position;
+
+    // Initialize camera values
+    this->speed = 0.1f;
+    this->sensitivity = 0.1f;
+    this->yaw = -90.0f;
+    this->pitch = 0.0f;
+    this->firstClick = true;
+    this->cursorCaptured = false;
+
+    // Calculate initial orientation
+    glm::vec3 direction;
+    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    direction.y = sin(glm::radians(pitch));
+    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    this->Orientation = glm::normalize(direction);
+
+    std::cout << "Camera initialized at position: "
+              << position.x << ", " << position.y << ", " << position.z << std::endl;
 }
 
 void Camera::Matrix(float FOVdeg, float nearPlane, float farPlane, Shader &shader, const char *uniform)
@@ -35,13 +56,11 @@ void Camera::Matrix(float FOVdeg, float nearPlane, float farPlane, Shader &shade
 
 void Camera::Inputs(GLFWwindow *window)
 {
-    // WASD key inputs to move the camera
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        Position += Orientation * speed;
+    {
+        Position += speed * Orientation;
+        std::cout << "W pressed! New position: " << Position.z << std::endl;
+    }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        Position -= Orientation * speed;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        Position -= glm::normalize(glm::cross(Orientation, Up)) * speed;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        Position += glm::normalize(glm::cross(Orientation, Up)) * speed;
+        Position -= speed * Orientation;
 }

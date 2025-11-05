@@ -20,8 +20,23 @@ public:
     int width;
     int height;
 
-    float speed = 0.01f;
-    float sensitivity = 200.0f;
+    // Modify these values for better control
+    float speed = 0.1f;
+    float sensitivity = 0.1f;
+
+    // Add middle mouse pan support
+    bool isPanning = false;
+    bool isOrbiting = false;
+    glm::vec3 target = glm::vec3(0.0f, 0.0f, 0.0f);
+    float orbitDistance = 5.0f;
+
+    // Add these new members
+    bool firstClick = true;
+    bool cursorCaptured = false;
+    float yaw = -90.0f;
+    float pitch = 0.0f;
+    double lastX = 0.0f;
+    double lastY = 0.0f;
 
     Camera(int width, int height, glm::vec3 position);
 

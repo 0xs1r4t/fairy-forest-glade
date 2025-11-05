@@ -12,7 +12,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # sources
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.cpp)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS 
+    src/utils/*.cpp
+    src/main.cpp
+    src/headers/*.h
+)
 add_executable(fairy_forest_glade ${SOURCES})
 
 # headers location
