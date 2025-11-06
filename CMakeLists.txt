@@ -12,9 +12,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # sources
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS 
-    src/utils/*.cpp
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
     src/main.cpp
+    src/utils/*.cpp
     src/headers/*.h
 )
 add_executable(fairy_forest_glade ${SOURCES})
@@ -56,6 +56,11 @@ add_custom_command(TARGET fairy_forest_glade POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/shaders
         $<TARGET_FILE_DIR:fairy_forest_glade>/shaders
+)
+add_custom_command(TARGET fairy_forest_glade POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/textures
+        $<TARGET_FILE_DIR:fairy_forest_glade>/textures
 )
 add_custom_command(TARGET fairy_forest_glade POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
