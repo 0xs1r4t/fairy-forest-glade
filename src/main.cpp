@@ -3,11 +3,15 @@
 #include <stb_image.h>
 #include <iostream>
 #include <fstream>
+using namespace std;
 
 #include "shader.h"
 #include "camera.h"
 #include "model.h"
-#include "terrain.h"
+#include "skybox.h"
+
+#define WIDTH 1280
+#define HEIGHT 720
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
@@ -15,8 +19,8 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 
 // screen settings
-const unsigned int SCR_WIDTH = 1280;
-const unsigned int SCR_HEIGHT = 720;
+const unsigned int SCR_WIDTH = WIDTH;
+const unsigned int SCR_HEIGHT = HEIGHT;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
@@ -42,7 +46,7 @@ int main()
     GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fairy Forest Glade", NULL, NULL);
     if (window == NULL)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        cout << "Failed to create GLFW window" << endl;
         glfwTerminate();
         return -1;
     }
@@ -58,7 +62,7 @@ int main()
     // ---------------------------------------
     if (glewInit() != GLEW_OK)
     {
-        std::cout << "Failed to initialize GLEW" << std::endl;
+        cout << "Failed to initialize GLEW" << endl;
         return -1;
     }
 
@@ -68,18 +72,22 @@ int main()
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_BLEND);
+    // glEnable(GL_CULL_FACE);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader("src/shaders/shader.vert", "src/shaders/shader.frag");
+    // build and compile shaders
+    Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
+    Shader skyboxShader("src/shaders/skybox.vert", "src/shaders/skybox.frag");
+
+    // Create skybox with HDRI
+    Skybox skybox("src/textures/satara_night_no_lamps_4k.exr");
 
     // load models
     // -----------
-    Model ourModel("src/models/monkey/monkey.obj");
-
-    // create terrain
-    // --------------
-    Terrain terrain(100, 100, 0.1f, 5.0f, 12345); // width, depth, scale, heightScale, seed
+    Model monkeyModel("src/models/monkey/monkey.obj");
 
     // draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -103,49 +111,46 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // bind textures on corresponding texture units
 
-        // render the container
-        ourShader.use();
+        // Setup matrices (used by both object and skybox)
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
+                                                (float)SCR_WIDTH / (float)SCR_HEIGHT,
+                                                0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
 
-        // lighting uniforms
+        // ===== DRAW OBJECTS FIRST =====
+        mainShader.use();
+
+        // Bind HDRI texture for objects (for reflections/ambient)
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, skybox.GetTextureID());
+        mainShader.setInt("environmentMap", 0);
+
+        // Lighting uniforms
         glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
         glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
-        ourShader.setVec3("lightPos", lightPos);
-        ourShader.setVec3("lightColor", lightColor);
-        ourShader.setVec3("viewPos", camera.Position);
+        mainShader.setVec3("lightPos", lightPos);
+        mainShader.setVec3("lightColor", lightColor);
+        mainShader.setVec3("viewPos", camera.Position);
 
-        // render terrain
-        glm::mat4 terrainModel = glm::mat4(1.0f);
-        terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -5.0f, 0.0f));
-        ourShader.setMat4("model", terrainModel);
+        // Set matrices
+        mainShader.setMat4("projection", projection);
+        mainShader.setMat4("view", view);
 
-        // set terrain flag
-        ourShader.setBool("isTerrain", true);
-        ourShader.setVec3("materialColor", glm::vec3(0.3f, 0.6f, 0.2f)); // This will be overridden in shader
-        ourShader.setFloat("materialShininess", 16.0f);                  // This will be overridden in shader
-
-        terrain.Draw(ourShader);
-
-        // render the loaded model
+        // Render the monkey
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));     // it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 
-        // set terrain flag to false and give color/shininess for the monkey
-        ourShader.setBool("isTerrain", false);
         glm::vec3 monkeyColor(0.8f, 0.5f, 0.8f);
         float monkeyShininess = 32.0f;
+        mainShader.setVec3("materialColor", monkeyColor);
+        mainShader.setFloat("materialShininess", monkeyShininess);
+        mainShader.setMat4("model", model);
 
-        ourShader.setVec3("materialColor", monkeyColor);
-        ourShader.setFloat("materialShininess", monkeyShininess);
-        ourShader.setMat4("model", model);
+        monkeyModel.Draw(mainShader);
 
-        ourModel.Draw(ourShader);
-
-        // perspective projection
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
+        // ===== DRAW SKYBOX LAST =====
+        skybox.Draw(skyboxShader, view, projection);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------

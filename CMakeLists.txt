@@ -30,6 +30,8 @@ find_package(OpenGL REQUIRED)
 find_package(Stb REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(OpenEXR CONFIG REQUIRED)
+find_package(IMath CONFIG REQUIRED)
 
 # Stb include directory
 if (DEFINED Stb_INCLUDE_DIR)
@@ -39,12 +41,13 @@ endif()
 # Link libraries with correct target names
 target_link_libraries(fairy_forest_glade
     PRIVATE
-        glad::glad
         glfw
-        GLEW::GLEW
         OpenGL::GL
-        assimp::assimp
+        GLEW::GLEW
         glm::glm
+        assimp::assimp
+        Imath::Imath
+        OpenEXR::OpenEXR
 )
 
 # copy runtime assets (shaders, models) next to the exe
