@@ -34,10 +34,11 @@ unsigned int loadHDR(const char *path, int &width, int &height)
         {
             for (int x = 0; x < width; x++)
             {
+                int flippedY = height - 1 - y; // Flip vertically for OpenGL
                 int idx = (y * width + x) * 3;
-                data[idx + 0] = pixels[y][x].r;
-                data[idx + 1] = pixels[y][x].g;
-                data[idx + 2] = pixels[y][x].b;
+                data[idx + 0] = pixels[flippedY][x].r;
+                data[idx + 1] = pixels[flippedY][x].g;
+                data[idx + 2] = pixels[flippedY][x].b;
                 // Note: Alpha channel ignored for HDR environment maps
             }
         }
@@ -65,7 +66,3 @@ unsigned int loadHDR(const char *path, int &width, int &height)
         return 0;
     }
 }
-
-// Usage example:
-// int width, height;
-// unsigned int hdrTexture = loadHDR("environment.exr", width, height);
