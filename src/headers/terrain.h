@@ -8,16 +8,42 @@
 #include <vector>
 using namespace std;
 
+#include "shader.h"
+
+struct TerrainVertex
+{
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 texCoords;
+    glm::vec3 colour;
+};
+
 class Terrain
 {
 public:
-    Terrain() {}
-    ~Terrain() {}
+    Terrain(int height, int width, float scale = 1.0f, float heightScale = 1.0f);
+    ~Terrain();
 
-    void generateTerrain(int width, int height);
-    void renderTerrain();
-    void setHeightMap(const vector<float> &heightMap);
+    void drawTerrain(Shader &shader, const glm::mat4 &view);
+    float getHeight(float x, float z);
+    glm::vec3 getNormal(float x, float z);
+    void regenerateTerrain(int octaves, float frequency, float amplitude);
 
 private:
-    unsigned int terrainVAO;
+    void generateTerrain();
+    void calculateNormals();
+    void setupMesh();
+
+    // terrain params
+    int height;
+    int width;
+    float scale;
+    float heightScale;
+    int octaves = 6;
+    float frequency = 0.05f;
+
+    vector<TerrainVertex> vertices;
+    vector<unsigned int> indices;
+    vector<float> heightMap;
+    unsigned int VAO, VBO, EBO;
 };

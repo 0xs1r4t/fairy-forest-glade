@@ -2,35 +2,33 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <iostream>
-#include <fstream>
 using namespace std;
 
 #include "shader.h"
 #include "camera.h"
-#include "model.h"
+#include "camera_controller.h"
 #include "skybox.h"
+#include "terrain.h"
+#include "fairy.h"
 
-#define WIDTH 1280
-#define HEIGHT 720
+#define WIDTH 1024
+#define HEIGHT 1024
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
-void processInput(GLFWwindow *window);
+void processInput(GLFWwindow *window, CameraController &cameraController, Fairy &fairy);
 
 // screen settings
 const unsigned int SCR_WIDTH = WIDTH;
 const unsigned int SCR_HEIGHT = HEIGHT;
 
 // camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
-bool firstMouse = true;
+Camera *g_camera = nullptr;
+CameraController *g_cameraController = nullptr;
 
 // timing
-float deltaTime = 0.0f; // time between current frame and last frame
-float lastFrame = 0.0f;
+float g_deltaTime = 0.0f;
 
 int main()
 {
@@ -66,31 +64,67 @@ int main()
         return -1;
     }
 
+    // Check for OpenGL errors
+    cout << "OpenGL Version: " << glGetString(GL_VERSION) << endl;
+
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     stbi_set_flip_vertically_on_load(true);
 
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // glEnable(GL_BLEND);
     // glEnable(GL_CULL_FACE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // camera + controller setup
+    // -------------------------
+    Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+    CameraController cameraController(&camera, SCR_WIDTH, SCR_HEIGHT);
 
     // build and compile our shader program
     // ------------------------------------
     // build and compile shaders
+    cout << "Loading shaders..." << endl;
     Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
     Shader skyboxShader("src/shaders/skybox.vert", "src/shaders/skybox.frag");
+    cout << "Shaders loaded successfully!" << endl;
 
     // Create skybox with HDRI
-    Skybox skybox("src/textures/satara_night_no_lamps_4k.exr");
+    cout << "Loading skybox..." << endl;
+    Skybox skybox("src/assets/textures/satara_night_no_lamps_4k.exr");
+    cout << "Skybox loaded!" << endl;
 
-    // load models
-    // -----------
-    Model monkeyModel("src/models/monkey/monkey.obj");
+    // load fairy models, instances and heirarchy
+    // ------------------------------------------
+    Fairy fairy("src/assets/models/fairy/fairy_body.obj",
+                "src/assets/models/fairy/fairy_upper_left_wing.obj",
+                "src/assets/models/fairy/fairy_lower_left_wing.obj",
+                "src/assets/models/fairy/fairy_upper_right_wing.obj",
+                "src/assets/models/fairy/fairy_lower_right_wing.obj");
+
+    fairy.flapSpeed = 1.0f;
+    fairy.wingColor = glm::vec3(1.0f, 0.8f, 0.9f);
+
+    // terrain
+    // -------
+    cout << "Generating terrain..." << endl;
+    Terrain terrain(100, 100, 1.0f, 5.0f); // 100x100 grid, 1m spacing, 5m max height
+    cout << "Terrain generated!" << endl;
 
     // draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+    // camera controls info
+    // --------------------
+    cout << "\n\n=== CONTROLS ===" << endl;
+    cout << "WASD: Move camera" << endl;
+    cout << "Mouse: Look around" << endl;
+    cout << "ESC: Exit" << endl;
+    cout << "\nStarting render loop..." << endl;
+
+    // timing
+    float lastFrame = 0.0f;
 
     // render loop
     // -----------
@@ -99,25 +133,25 @@ int main()
         // per-frame time logic
         // --------------------
         float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
+        g_deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         // input
         // -----
-        processInput(window);
+        processInput(window, cameraController, fairy);
 
         // render
         // ------
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // bind textures on corresponding texture units
 
-        // Setup matrices (used by both object and skybox)
+        // Setup matrices (used by both objects and skybox)
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
                                                 (float)SCR_WIDTH / (float)SCR_HEIGHT,
                                                 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
 
-        // ===== DRAW OBJECTS FIRST =====
+        // ===== DRAW OBJECTS =====
         mainShader.use();
 
         // Bind HDRI texture for objects (for reflections/ambient)
@@ -136,20 +170,18 @@ int main()
         mainShader.setMat4("projection", projection);
         mainShader.setMat4("view", view);
 
-        // Render the monkey
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        // ===== UPDATE AND DRAW FAIRY =====
+        fairy.Update(currentFrame, g_deltaTime);
+        fairy.Draw(mainShader);
 
-        glm::vec3 monkeyColor(0.8f, 0.5f, 0.8f);
-        float monkeyShininess = 32.0f;
-        mainShader.setVec3("materialColor", monkeyColor);
-        mainShader.setFloat("materialShininess", monkeyShininess);
-        mainShader.setMat4("model", model);
+        // ===== DRAW TERRAIN =====
+        mainShader.use();
+        mainShader.setBool("useVertexColor", true); // Use vertex colors for terrain
+        glm::mat4 terrainModel = glm::mat4(1.0f);
+        terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -5.0f, 0.0f));
+        terrain.drawTerrain(mainShader, terrainModel);
 
-        monkeyModel.Draw(mainShader);
-
-        // ===== DRAW SKYBOX LAST =====
+        // ===== DRAW SKYBOX (LAST) =====
         skybox.Draw(skyboxShader, view, projection);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -166,19 +198,23 @@ int main()
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
-void processInput(GLFWwindow *window)
+void processInput(GLFWwindow *window, CameraController &cameraController, Fairy &fairy)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+    // Camera controls (delegated to controller)
+    cameraController.ProcessKeyboard(window, g_deltaTime);
+
+    // Fairy flight controls
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        fairy.FlyUp(g_deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        fairy.FlyDown(g_deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        fairy.RotateAndMoveLeft(g_deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        fairy.RotateAndMoveRight(g_deltaTime);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -192,30 +228,16 @@ void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 
 // glfw: whenever the mouse moves, this callback is called
 // -------------------------------------------------------
-void mouse_callback(GLFWwindow *window, double xposIn, double yposIn)
+void mouse_callback(GLFWwindow *window, double xpos, double ypos)
 {
-    float xpos = static_cast<float>(xposIn);
-    float ypos = static_cast<float>(yposIn);
-
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-
-    lastX = xpos;
-    lastY = ypos;
-
-    camera.ProcessMouseMovement(xoffset, yoffset);
+    if (g_cameraController)
+        g_cameraController->ProcessMouseMovement(xpos, ypos);
 }
 
 // glfw: whenever the mouse scroll wheel scrolls, this callback is called
 // ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
-    camera.ProcessMouseScroll(static_cast<float>(yoffset));
+    if (g_cameraController)
+        g_cameraController->ProcessMouseScroll(yoffset);
 }

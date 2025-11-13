@@ -13,3 +13,17 @@ cd src
 g++ main.cpp -o main -I C:\\glfw-3.4.bin.WIN64\\glfw-3.4.bin.WIN64\\include -L C:\\glfw-3.4.bin.WIN64\\glfw-3.4.bin.WIN64\\lib-mingw-w64 -I C:\\glew-2.1.0\\include -L C:\\glew-2.1.0\\lib\\Release\\x64 -I C:\\vcpkg\\installed\\x64-windows\\include -L C:\\vcpkg\\installed\\x64-windows\\bin -lassimp -lglfw3dll -lglew32 -lopengl32
 ./main.exe
 ```
+
+## getting all my files in one text file
+
+```pwsh
+cd src
+dir_print . --omit assets --export files.txt
+```
+
+## cleaning up the build
+
+```pwsh
+cd build
+cmake --build . --config Release --clean-first
+```

@@ -62,11 +62,11 @@ add_custom_command(TARGET fairy_forest_glade POST_BUILD
 )
 add_custom_command(TARGET fairy_forest_glade POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/src/textures
-        $<TARGET_FILE_DIR:fairy_forest_glade>/textures
+        ${CMAKE_SOURCE_DIR}/src/assets/textures
+        $<TARGET_FILE_DIR:fairy_forest_glade>/assets/textures
 )
 add_custom_command(TARGET fairy_forest_glade POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/src/models
-        $<TARGET_FILE_DIR:fairy_forest_glade>/models
+        ${CMAKE_SOURCE_DIR}/src/assets/models
+        $<TARGET_FILE_DIR:fairy_forest_glade>/assets/models
 )
