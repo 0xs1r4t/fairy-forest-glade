@@ -4,16 +4,14 @@ out vec4 FragColor;
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
-in vec3 VertexColor;
 
 uniform vec3 viewPos;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 materialColor;
 uniform float materialShininess;
-uniform bool useVertexColor;
 
-// Add environment map
+// Environment map
 uniform sampler2D environmentMap;
 
 const vec2 invAtan = vec2(0.1591, 0.3183);
@@ -28,35 +26,37 @@ vec2 SampleSphericalMap(vec3 v)
 
 void main()
 {
-    vec3 finalMaterialColor = useVertexColor ? VertexColor : materialColor;
-    float finalShininess = materialShininess;
-
     // Basic lighting
-    float ambientStrength = 0.2;
-    vec3 ambient = ambientStrength * lightColor;
-
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
+    vec3 viewDir = normalize(viewPos - FragPos);
+    
+    // Ambient
+    float ambientStrength = 0.2;
+    vec3 ambient = ambientStrength * lightColor;
+    
+    // Diffuse
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
-
+    
+    // Specular
     float specularStrength = 0.5;
-    vec3 viewDir = normalize(viewPos - FragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), finalShininess);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), materialShininess);
     vec3 specular = specularStrength * spec * lightColor;
-
+    
+    // Environment mapping
     vec3 envColor = texture(environmentMap, SampleSphericalMap(norm)).rgb;
     vec3 envAmbient = 0.3 * envColor;
-
+    
     vec3 R = reflect(-viewDir, norm);
     vec3 envReflection = texture(environmentMap, SampleSphericalMap(R)).rgb;
-
-    float reflectivity = finalShininess / 128.0;
-
-    vec3 result = (envAmbient + diffuse) * finalMaterialColor +
+    float reflectivity = materialShininess / 128.0;
+    
+    // Combine
+    vec3 result = (envAmbient + diffuse) * materialColor +
                   specular * lightColor +
                   reflectivity * envReflection;
-
+    
     FragColor = vec4(result, 1.0);
 }

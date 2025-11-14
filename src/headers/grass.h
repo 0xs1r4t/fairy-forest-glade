@@ -1,11 +1,25 @@
 #pragma once
 
+#include <GL/glew.h>
+#include <glm/glm.hpp>
+#include <vector>
+using namespace std;
+
+#include "shader.h"
+#include "terrain.h"
+#include "model.h"
+
 class Grass
 {
 public:
-    Grass() {}
-    ~Grass() {}
+    Grass(Terrain *terrain, Model *grassModel, int count);
 
-    void generateGrass(int count);
-    void renderGrass();
+    void Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &projection);
+    vector<glm::vec3> positions;
+
+private:
+    Terrain *terrain;
+    Model *grassModel;
+    unsigned int instanceVBO;
+    int count;
 };

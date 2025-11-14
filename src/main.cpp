@@ -10,6 +10,8 @@ using namespace std;
 #include "skybox.h"
 #include "terrain.h"
 #include "fairy.h"
+#include "grass.h"
+#include "model.h"
 
 #define WIDTH 1024
 #define HEIGHT 1024
@@ -74,7 +76,7 @@ int main()
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // glEnable(GL_BLEND);
+    glEnable(GL_BLEND);
     // glEnable(GL_CULL_FACE);
 
     // camera + controller setup
@@ -82,12 +84,17 @@ int main()
     Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
     CameraController cameraController(&camera, SCR_WIDTH, SCR_HEIGHT);
 
+    g_camera = &camera;
+    g_cameraController = &cameraController;
+
     // build and compile our shader program
     // ------------------------------------
     // build and compile shaders
     cout << "Loading shaders..." << endl;
     Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
     Shader skyboxShader("src/shaders/skybox.vert", "src/shaders/skybox.frag");
+    Shader terrainShader("src/shaders/terrain.vert", "src/shaders/terrain.frag");
+    Shader grassShader("src/shaders/grass.vert", "src/shaders/grass.frag");
     cout << "Shaders loaded successfully!" << endl;
 
     // Create skybox with HDRI
@@ -111,6 +118,23 @@ int main()
     cout << "Generating terrain..." << endl;
     Terrain terrain(100, 100, 1.0f, 5.0f); // 100x100 grid, 1m spacing, 5m max height
     cout << "Terrain generated!" << endl;
+
+    // grass
+    cout << "Generating grass..." << endl;
+    Model grassModel("src/assets/models/grass/grass.obj");
+    Grass grass(&terrain, &grassModel, 2000); // number of instances of grass on the terrain
+
+    // GRASS TEXTURE setup
+    unsigned int grassTex;
+    glGenTextures(1, &grassTex);
+    int w, h, channels;
+    unsigned char *data = stbi_load("src/assets/textures/grass.png", &w, &h, &channels, 4);
+    glBindTexture(GL_TEXTURE_2D, grassTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(data);
 
     // draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -175,11 +199,29 @@ int main()
         fairy.Draw(mainShader);
 
         // ===== DRAW TERRAIN =====
-        mainShader.use();
-        mainShader.setBool("useVertexColor", true); // Use vertex colors for terrain
+        terrainShader.use();
+        terrainShader.setVec3("lightPos", lightPos);
+        terrainShader.setVec3("lightColor", lightColor);
+        terrainShader.setVec3("viewPos", camera.Position);
+        terrainShader.setMat4("projection", projection);
+        terrainShader.setMat4("view", view);
+
         glm::mat4 terrainModel = glm::mat4(1.0f);
         terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -5.0f, 0.0f));
-        terrain.drawTerrain(mainShader, terrainModel);
+        terrain.drawTerrain(terrainShader, terrainModel);
+
+        // ===== DRAW GRASS =====
+        glDepthMask(GL_FALSE);
+        grassShader.use();
+        grassShader.setMat4("view", view);
+        grassShader.setMat4("projection", projection);
+        grassShader.setVec3("lightPos", lightPos);
+        grassShader.setVec3("viewPos", camera.Position);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, grassTex);
+        grassShader.setInt("grassTexture", 0);
+        grass.Draw(grassShader, view, projection);
+        glDepthMask(GL_TRUE);
 
         // ===== DRAW SKYBOX (LAST) =====
         skybox.Draw(skyboxShader, view, projection);

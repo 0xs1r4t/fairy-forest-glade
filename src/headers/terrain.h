@@ -21,6 +21,11 @@ struct TerrainVertex
 class Terrain
 {
 public:
+    // terrain params
+    int height;
+    int width;
+    int scale;
+
     Terrain(int height, int width, float scale = 1.0f, float heightScale = 1.0f);
     ~Terrain();
 
@@ -35,9 +40,6 @@ private:
     void setupMesh();
 
     // terrain params
-    int height;
-    int width;
-    float scale;
     float heightScale;
     int octaves = 6;
     float frequency = 0.05f;

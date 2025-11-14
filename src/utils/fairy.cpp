@@ -91,21 +91,30 @@ void Fairy::animateHover(float currentTime, float deltaTime)
 
 void Fairy::animateWings(float currentTime)
 {
-    float wingFlap = sin(currentTime * flapSpeed);
+    // oscillate from 0 to 1
+    float flapPhase = (sin(currentTime * flapSpeed) + 1.0f) * -0.5f;
+
+    float maxFlapAngle = 20.0f;
+    float maxLiftAngle = 15.0f;
+    float lowerFlapOffset = 0.0f;
+    float lowerLiftOffset = 0.75f;
+
+    float wingFlap = flapPhase * maxFlapAngle;
+    float wingLift = flapPhase * maxLiftAngle;
 
     // Upper wings - main flap motion
-    float upperWingAngle = wingFlap * 30.0f;
-    leftUpperWing.rotation.x = upperWingAngle;
-    rightUpperWing.rotation.x = upperWingAngle;
+    leftUpperWing.rotation.y = wingFlap;
+    leftLowerWing.rotation.x = wingLift;
+
+    rightUpperWing.rotation.y = -wingFlap;
+    rightLowerWing.rotation.x = wingLift;
 
     // Lower wings - hierarchical motion
-    float lowerWingAngle = wingFlap * 20.0f + 15.0f;
-    leftLowerWing.rotation.x = lowerWingAngle;
-    rightLowerWing.rotation.x = lowerWingAngle;
+    leftLowerWing.rotation.y = wingFlap + lowerFlapOffset;
+    leftLowerWing.rotation.x = wingLift * lowerLiftOffset;
 
-    // // Z-axis twist for natural motion
-    // leftUpperWing.rotation.z = wingFlap * 3.0f;
-    // rightUpperWing.rotation.z = -wingFlap * 3.0f;
+    rightLowerWing.rotation.y = -wingFlap - lowerFlapOffset;
+    rightLowerWing.rotation.x = wingLift * lowerLiftOffset;
 }
 
 void Fairy::Draw(Shader &shader)
