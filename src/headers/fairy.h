@@ -28,8 +28,14 @@ public:
     // Control methods
     void FlyUp(float deltaTime);
     void FlyDown(float deltaTime);
-    void RotateAndMoveLeft(float deltaTime);
-    void RotateAndMoveRight(float deltaTime);
+    void MoveForward(float deltaTime);
+    void MoveBackward(float deltaTime);
+    void MoveLeft(float deltaTime);
+    void MoveRight(float deltaTime);
+    void RotateLeft(float deltaTime);
+    void RotateRight(float deltaTime);
+
+    // Set/get position
     void SetPosition(const glm::vec3 &pos);
     glm::vec3 GetPosition() const;
 

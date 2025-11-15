@@ -8,6 +8,8 @@ in vec2 TexCoords;
 uniform vec3 viewPos;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
+uniform vec3 fairyLightPos;
+uniform vec3 fairyLightColor;
 uniform vec3 materialColor;
 uniform float materialShininess;
 
@@ -28,35 +30,50 @@ void main()
 {
     // Basic lighting
     vec3 norm = normalize(Normal);
-    vec3 lightDir = normalize(lightPos - FragPos);
     vec3 viewDir = normalize(viewPos - FragPos);
-    
-    // Ambient
-    float ambientStrength = 0.2;
-    vec3 ambient = ambientStrength * lightColor;
-    
-    // Diffuse
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
-    
-    // Specular
-    float specularStrength = 0.5;
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), materialShininess);
-    vec3 specular = specularStrength * spec * lightColor;
     
     // Environment mapping
     vec3 envColor = texture(environmentMap, SampleSphericalMap(norm)).rgb;
     vec3 envAmbient = 0.3 * envColor;
     
+    // Initialize result with ambient
+    vec3 result = envAmbient * materialColor;
+    
+    // LIGHT 1: Main scene light
+    {
+        vec3 lightDir = normalize(lightPos - FragPos);
+        
+        // Diffuse
+        float diff = max(dot(norm, lightDir), 0.0);
+        vec3 diffuse = diff * lightColor;
+        
+        // Specular
+        float specularStrength = 0.5;
+        vec3 reflectDir = reflect(-lightDir, norm);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), materialShininess);
+        vec3 specular = specularStrength * spec * lightColor;
+        
+        result += (diffuse * materialColor + specular);
+    }
+
+    // LIGHT 2: Fairy light (point light above fairy)
+    {
+        vec3 fairyDir = normalize(fairyLightPos - FragPos);
+        float distance = length(fairyLightPos - FragPos);
+        float attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+        
+        // Diffuse
+        float diff = max(dot(norm, fairyDir), 0.0);
+        vec3 diffuse = diff * fairyLightColor * attenuation;
+        
+        result += diffuse * materialColor;
+    }
+    
+    // Environment reflection
     vec3 R = reflect(-viewDir, norm);
     vec3 envReflection = texture(environmentMap, SampleSphericalMap(R)).rgb;
-    float reflectivity = materialShininess / 128.0;
-    
-    // Combine
-    vec3 result = (envAmbient + diffuse) * materialColor +
-                  specular * lightColor +
-                  reflectivity * envReflection;
+    float reflectivity = max(0.0, (materialShininess - 1.0) / 128.0);
+    result += reflectivity * envReflection;
     
     FragColor = vec4(result, 1.0);
 }
