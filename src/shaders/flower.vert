@@ -11,7 +11,7 @@ uniform mat4 projection;
 out vec2 TexCoords;
 out vec3 Normal;
 out vec3 FragPos;
-out float height;
+out vec3 LocalPos;
 
 void main()
 {
@@ -21,7 +21,7 @@ void main()
     FragPos = worldPos;
     Normal = mat3(transpose(inverse(model))) * aNormal;
     TexCoords = aTexCoords;
-    height = aPos.y;
+    LocalPos = aPos;
     
     gl_Position = projection * view * vec4(FragPos, 1.0);
 }

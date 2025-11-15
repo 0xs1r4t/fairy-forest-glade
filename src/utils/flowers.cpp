@@ -3,21 +3,23 @@
 #include <iostream>
 using namespace std;
 
-#include "grass.h"
+#include "flowers.h"
 #include "noise.h"
 
-Grass::Grass(Terrain *terrain, Model *grassModel, int count)
-    : terrain(terrain), grassModel(grassModel), count(count)
+Flowers::Flowers(Terrain *terrain, Model *flowerModel, int count)
+    : terrain(terrain), flowerModel(flowerModel), count(count)
 {
-    cout << "\n=== GRASS DEBUG ===" << endl;
-    cout << "Placing grass instances..." << endl;
+    cout << "\n=== FLOWERS DEBUG ===" << endl;
+    cout << "Placing flower instances..." << endl;
 
-    srand(static_cast<unsigned int>(time(0)));
+    // Seed random for better distribution
+    srand(static_cast<unsigned int>(time(0)) + 12345);
 
     // Terrain info
     cout << "Terrain dimensions: " << terrain->width << "x" << terrain->height << endl;
     cout << "Terrain scale: " << terrain->scale << endl;
 
+    // Generate random flower positions
     int attempts = count * 2;
     for (int i = 0; i < attempts && positions.size() < count; i++)
     {
@@ -36,25 +38,25 @@ Grass::Grass(Terrain *terrain, Model *grassModel, int count)
             // Debug first few positions
             if (positions.size() <= 3)
             {
-                cout << "Grass #" << positions.size() << " at: ("
+                cout << "Flower #" << positions.size() << " at: ("
                      << x << ", " << y << ", " << z << ")" << endl;
             }
         }
     }
 
-    cout << "Placed " << positions.size() << " grass instances out of " << count << " requested" << endl;
+    cout << "Placed " << positions.size() << " flower instances out of " << count << " requested" << endl;
 
     if (positions.size() > 0)
     {
-        cout << "First grass position: (" << positions[0].x << ", " << positions[0].y << ", " << positions[0].z << ")" << endl;
-        cout << "Last grass position: (" << positions.back().x << ", " << positions.back().y << ", " << positions.back().z << ")" << endl;
+        cout << "First flower position: (" << positions[0].x << ", " << positions[0].y << ", " << positions[0].z << ")" << endl;
+        cout << "Last flower position: (" << positions.back().x << ", " << positions.back().y << ", " << positions.back().z << ")" << endl;
     }
 
     // Create VBO for visible instances
     glGenBuffers(1, &visibleInstanceVBO);
 
     // Attach instance attribute to each mesh
-    for (Mesh &mesh : grassModel->meshes)
+    for (Mesh &mesh : flowerModel->meshes)
     {
         glBindVertexArray(mesh.VAO);
         glBindBuffer(GL_ARRAY_BUFFER, visibleInstanceVBO);
@@ -68,58 +70,22 @@ Grass::Grass(Terrain *terrain, Model *grassModel, int count)
          << endl;
 }
 
-void Grass::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &projection,
-                 const Camera::Frustum &frustum, const Camera &camera)
+void Flowers::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &projection,
+                   const Camera::Frustum &frustum, const Camera &camera)
 {
     static int frameCount = 0;
-    static bool debugPrinted = false;
     frameCount++;
 
     // Clear visible positions
     visiblePositions.clear();
 
-    // DEBUG: Print frustum planes once
-    if (!debugPrinted)
-    {
-        cout << "\n=== FRUSTUM DEBUG ===" << endl;
-        cout << "Camera Position: (" << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << ")" << endl;
-        cout << "Camera Front: (" << camera.Front.x << ", " << camera.Front.y << ", " << camera.Front.z << ")" << endl;
-        for (int i = 0; i < 6; i++)
-        {
-            cout << "Plane " << i << ": ("
-                 << frustum.planes[i].x << ", "
-                 << frustum.planes[i].y << ", "
-                 << frustum.planes[i].z << ", "
-                 << frustum.planes[i].w << ")" << endl;
-        }
-
-        // Test first grass position
-        if (!positions.empty())
-        {
-            glm::vec3 testPos = positions[0];
-            cout << "\nTesting first grass at: (" << testPos.x << ", " << testPos.y << ", " << testPos.z << ")" << endl;
-
-            float boundingRadius = 1.0f;
-            bool visible = camera.IsSphereInFrustum(frustum, testPos, boundingRadius);
-            cout << "IsSphereInFrustum result: " << (visible ? "VISIBLE" : "CULLED") << endl;
-
-            // Check each plane
-            for (int i = 0; i < 6; i++)
-            {
-                float distance = glm::dot(glm::vec3(frustum.planes[i]), testPos) + frustum.planes[i].w;
-                cout << "  Plane " << i << " distance: " << distance << " (radius: " << boundingRadius << ")" << endl;
-            }
-        }
-        cout << "===================\n"
-             << endl;
-        debugPrinted = true;
-    }
-
     // Frustum culling with bounding sphere
-    float boundingRadius = 1.0f;
+    // Flower models may be slightly larger than grass
+    float boundingRadius = 1.5f; // Adjust based on your flower model size
 
     for (const auto &pos : positions)
     {
+        // Check if this flower instance is within the frustum
         if (camera.IsSphereInFrustum(frustum, pos, boundingRadius))
         {
             visiblePositions.push_back(pos);
@@ -129,7 +95,7 @@ void Grass::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &project
     // Debug output every 60 frames
     if (frameCount % 60 == 0)
     {
-        cout << "Grass: Rendering " << visiblePositions.size() << " / "
+        cout << "Flowers: Rendering " << visiblePositions.size() << " / "
              << positions.size() << " instances" << endl;
     }
 
@@ -148,10 +114,12 @@ void Grass::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &project
     shader.setMat4("view", view);
     shader.setMat4("projection", projection);
 
+    // Simple model matrix - NO transforms, identity only
     glm::mat4 model = glm::mat4(1.0f);
     shader.setMat4("model", model);
 
-    for (Mesh &mesh : grassModel->meshes)
+    // Draw all flower meshes
+    for (Mesh &mesh : flowerModel->meshes)
     {
         glBindVertexArray(mesh.VAO);
         glDrawElementsInstanced(GL_TRIANGLES, mesh.indices.size(), GL_UNSIGNED_INT, 0,
