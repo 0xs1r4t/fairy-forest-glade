@@ -3,6 +3,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include "camera.h"
+#include "fairy.h"
 
 class CameraController
 {
@@ -18,6 +19,9 @@ public:
 
     // Process mouse scroll
     void ProcessMouseScroll(double yoffset);
+
+    // Process fairy movement
+    void ProcessFairyMovement(GLFWwindow *window, float deltaTime, Fairy &fairy);
 
     // Get the camera
     Camera *GetCamera() { return camera; }

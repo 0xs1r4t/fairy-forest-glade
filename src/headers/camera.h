@@ -57,6 +57,12 @@ public:
         updateCameraVectors();
     }
 
+    // defined for frustum culling
+    struct Frustum
+    {
+        glm::vec4 planes[6]; // left, right, bottom, top, near, far
+    };
+
     // returns the view matrix calculated using Euler Angles and the LookAt Matrix
     glm::mat4 GetViewMatrix()
     {
@@ -107,6 +113,60 @@ public:
             Zoom = 1.0f;
         if (Zoom > 45.0f)
             Zoom = 45.0f;
+    }
+
+    Frustum GetFrustum(float aspect, float fovY, float nearPlane, float farPlane) const
+    {
+        Frustum frustum;
+
+        const float halfVSide = farPlane * tanf(fovY * 0.5f);
+        const float halfHSide = halfVSide * aspect;
+        const glm::vec3 frontMultFar = farPlane * Front;
+
+        // Near and far planes
+        frustum.planes[4] = glm::vec4(Front, -glm::dot(Front, Position + nearPlane * Front));
+        frustum.planes[5] = glm::vec4(-Front, glm::dot(Front, Position + frontMultFar));
+
+        // Left plane
+        glm::vec3 leftNormal = glm::normalize(glm::cross(frontMultFar - Right * halfHSide, Up));
+        frustum.planes[0] = glm::vec4(leftNormal, -glm::dot(leftNormal, Position));
+
+        // Right plane
+        glm::vec3 rightNormal = glm::normalize(glm::cross(Up, frontMultFar + Right * halfHSide));
+        frustum.planes[1] = glm::vec4(rightNormal, -glm::dot(rightNormal, Position));
+
+        // Bottom plane
+        glm::vec3 bottomNormal = glm::normalize(glm::cross(Right, frontMultFar - Up * halfVSide));
+        frustum.planes[2] = glm::vec4(bottomNormal, -glm::dot(bottomNormal, Position));
+
+        // Top plane
+        glm::vec3 topNormal = glm::normalize(glm::cross(frontMultFar + Up * halfVSide, Right));
+        frustum.planes[3] = glm::vec4(topNormal, -glm::dot(topNormal, Position));
+
+        return frustum;
+    }
+
+    // Check if a point is inside the frustum
+    bool IsPointInFrustum(const Frustum &frustum, const glm::vec3 &point) const
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            if (glm::dot(glm::vec3(frustum.planes[i]), point) + frustum.planes[i].w < 0)
+                return false;
+        }
+        return true;
+    }
+
+    // Check if a sphere is inside the frustum (better for foliage culling)
+    bool IsSphereInFrustum(const Frustum &frustum, const glm::vec3 &center, float radius) const
+    {
+        for (int i = 0; i < 6; i++)
+        {
+            float distance = glm::dot(glm::vec3(frustum.planes[i]), center) + frustum.planes[i].w;
+            if (distance < -radius)
+                return false;
+        }
+        return true;
     }
 
 private:
