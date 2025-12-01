@@ -16,12 +16,7 @@ out vec3 FragPos;
 void main() {
     vec3 worldPos = aPos + instanceOffset;
     
-    // Flora interaction - scale up near fairy
-    float dist = length(vec2(fairyPos.x - worldPos.x, fairyPos.z - worldPos.z));
-    float influence = smoothstep(fairyRadius, 0.0, dist);
-    float extraScale = 1.0 + influence * 0.3;
-    
-    worldPos.y *= extraScale;
+    // Trees don't scale with fairy (too big), but we keep the uniform for consistency
     
     FragPos = worldPos;
     Normal = aNormal;

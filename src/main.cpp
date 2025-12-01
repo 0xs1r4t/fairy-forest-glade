@@ -12,6 +12,8 @@ using namespace std;
 #include "fairy.h"
 #include "grass.h"
 #include "flowers.h"
+#include "foliage.h"
+#include "texture_generator.h"
 #include "model.h"
 
 #define WIDTH 1920
@@ -98,6 +100,7 @@ int main()
     Shader terrainShader("src/shaders/terrain.vert", "src/shaders/terrain.frag");
     Shader grassShader("src/shaders/grass.vert", "src/shaders/grass.frag");
     Shader flowerShader("src/shaders/flower.vert", "src/shaders/flower.frag");
+    Shader treeShader("src/shaders/tree.vert", "src/shaders/tree.frag");
     cout << "Shaders loaded successfully!" << endl;
 
     // Create skybox with HDRI
@@ -119,58 +122,73 @@ int main()
     fairy.bodyShininess = 1.0f;
     fairy.wingShininess = 1.0f;
 
-    // terrain
-    // -------
+    // ===== CREATE TERRAIN =====
     cout << "Generating terrain..." << endl;
     Terrain terrain(100, 100, 1.0f, 5.0f); // 100x100 grid, 1m spacing, 5m max height
     cout << "Terrain generated!" << endl;
 
+    // ===== CREATE FOLIAGE =====
     // grass
     cout << "Generating grass..." << endl;
-    Model grassModel("src/assets/models/foliage/grass.obj");
-    Grass grass(&terrain, &grassModel, 10000); // number of instances of grass on the terrain
+    // Model grassModel("src/assets/models/foliage/grass.obj"); of grass on the terrain
+    // Grass grass(&terrain, 10000);
+    Foliage grass(&terrain, FoliageType::GRASS, 50000, 0.8f, 0.4f);
+
 
     // flowers
     cout << "Generating flowers..." << endl;
-    Model flowerModel("src/assets/models/foliage/flowers.obj");
-    Flowers flowers(&terrain, &flowerModel, 2000); // number of instances of flowers on the terrain
+    // Model flowerModel("src/assets/models/foliage/flowers.obj");
+    // Flowers flowers(&terrain, &flowerModel, 2000); // number of instances of flowers on the terrain
+    Foliage flowers(&terrain, FoliageType::FLOWER, 5000, 1.2f, 0.6f);
 
-    cout << "=== FLOWER DEBUG ===" << endl;
-    cout << "Flower positions generated: " << flowers.positions.size() << endl;
-    cout << "Flower model meshes: " << flowerModel.meshes.size() << endl;
-    if (!flowers.positions.empty())
-    {
-        cout << "First flower at: (" << flowers.positions[0].x << ", "
-             << flowers.positions[0].y << ", " << flowers.positions[0].z << ")" << endl;
-    }
-    cout << "Camera starts at: (" << camera.Position.x << ", "
-         << camera.Position.y << ", " << camera.Position.z << ")" << endl;
-    cout << "===================" << endl;
+    // trees
+    cout << "Generating trees..." << endl;
+    Foliage trees(&terrain, FoliageType::TREE, 200, 6.0f, 3.0f);
 
-    // ===== TEXTURE SETUP =====
 
-    // GRASS TEXTURE setup
+    // ===== TEXTURE SETUP (GENERATE PROCEDURAL TEXTURES) =====
+    cout << "Generating procedural textures..." << endl;
+
+    // GRASS TEXTURE (512x512)
     unsigned int grassTex;
     glGenTextures(1, &grassTex);
-    int w, h, channels;
-    unsigned char *data = stbi_load("src/assets/textures/grass.png", &w, &h, &channels, 4);
     glBindTexture(GL_TEXTURE_2D, grassTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    std::vector<unsigned char> grassTexData = TextureGenerator::GenerateGrassTexture(512, 512);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, grassTexData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(data);
 
-    // FLOWER TEXTURE setup
+    // FLOWER TEXTURE (512x512)
     unsigned int flowerTex;
     glGenTextures(1, &flowerTex);
-    data = stbi_load("src/assets/textures/flower.png", &w, &h, &channels, 4);
     glBindTexture(GL_TEXTURE_2D, flowerTex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    std::vector<unsigned char> flowerTexData = TextureGenerator::GenerateFlowerTexture(512, 512);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, flowerTexData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(data);
+
+    // TREE TEXTURE (1024x1024 - bigger for more detail)
+    unsigned int treeTex;
+    glGenTextures(1, &treeTex);
+    glBindTexture(GL_TEXTURE_2D, treeTex);
+
+    std::vector<unsigned char> treeTexData = TextureGenerator::GenerateTreeTexture(1024, 1024);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, treeTexData.data());
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    cout << "Textures generated successfully!" << endl;
 
     // draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -219,7 +237,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // bind textures on corresponding texture units
 
         // Setup matrices (used by both objects and skybox)
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
+        glm::mat4 projection = glm::perspective(glm::radians(75.0f), // Try 75 degrees
                                                 (float)SCR_WIDTH / (float)SCR_HEIGHT,
                                                 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
@@ -251,7 +269,7 @@ int main()
         // Calculate frustum and pass it to all foliage for culling
         Camera::Frustum frustum = camera.GetFrustum(
             (float)SCR_WIDTH / (float)SCR_HEIGHT,
-            glm::radians(camera.Zoom),
+            glm::radians(75.0f), // Match the FOV here too
             0.1f,
             100.0f);
 
@@ -275,23 +293,46 @@ int main()
         grassShader.use();
         grassShader.setMat4("view", view);
         grassShader.setMat4("projection", projection);
+        grassShader.setVec3("fairyPos", fairy.GetPosition());
+        grassShader.setFloat("fairyRadius", 3.0f);
         grassShader.setVec3("lightPos", lightPos);
         grassShader.setVec3("viewPos", camera.Position);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, grassTex);
         grassShader.setInt("grassTexture", 0);
+
         grass.Draw(grassShader, view, projection, frustum, camera);
 
         // ===== DRAW FLOWERS =====
         flowerShader.use();
         flowerShader.setMat4("view", view);
         flowerShader.setMat4("projection", projection);
+        flowerShader.setVec3("fairyPos", fairy.GetPosition());
+        flowerShader.setFloat("fairyRadius", 3.0f);
         flowerShader.setVec3("lightPos", lightPos);
         flowerShader.setVec3("viewPos", camera.Position);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, flowerTex);
         flowerShader.setInt("flowerTexture", 0);
+
         flowers.Draw(flowerShader, view, projection, frustum, camera);
+
+        // ===== DRAW TREES =====
+        treeShader.use(); // Use dedicated tree shader
+        treeShader.setMat4("view", view);
+        treeShader.setMat4("projection", projection);
+        treeShader.setVec3("fairyPos", fairy.GetPosition());
+        treeShader.setFloat("fairyRadius", 5.0f); // Larger radius (though trees don't scale)
+        treeShader.setVec3("lightPos", lightPos);
+        treeShader.setVec3("viewPos", camera.Position);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, treeTex);
+        treeShader.setInt("treeTexture", 0);
+
+        trees.Draw(treeShader, view, projection, frustum, camera);
 
         // ===== DRAW SKYBOX (LAST) =====
         skybox.Draw(skyboxShader, view, projection);

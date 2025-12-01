@@ -5,30 +5,30 @@ in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
 
-uniform sampler2D grassTexture;
+uniform sampler2D treeTexture;
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 
 void main() {
-    vec4 texColor = texture(grassTexture, TexCoords);
+    vec4 texColor = texture(treeTexture, TexCoords);
     
-    // Alpha cutout - discard fully transparent pixels
+    // Alpha cutout
     if (texColor.a < 0.1) {
         discard;
     }
     
-    // Simple lighting
+    // Lighting
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
     
     // Ambient
-    float ambient = 0.4;
+    float ambient = 0.3;
     
     // Diffuse
     float diff = max(dot(norm, lightDir), 0.0);
     
-    // Combine
-    vec3 result = (ambient + diff) * texColor.rgb;
+    // Trees have more pronounced shadows
+    vec3 result = (ambient + diff * 0.7) * texColor.rgb;
     
     FragColor = vec4(result, texColor.a);
 }

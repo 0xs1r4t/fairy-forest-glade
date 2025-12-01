@@ -14,6 +14,6 @@ void main()
     mat4 rotView = mat4(mat3(view));
     vec4 clipPos = projection * rotView * vec4(WorldPos, 1.0);
     
-    // Trick to make skybox render behind everything
+    // Set z = w so depth is always 1.0 (farthest)
     gl_Position = clipPos.xyww;
 }

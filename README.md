@@ -3,7 +3,7 @@
 ```pwsh
 cmake -S . -B build -A x64 -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
 cmake --build build --config Release
-.\build\Release\fairy-forest-glade.exe
+.\build\Release\fairy_forest_glade.exe
 ```
 
 # getting this file up and running
