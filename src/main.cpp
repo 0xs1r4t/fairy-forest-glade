@@ -80,7 +80,7 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    // glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
 
     // camera + controller setup
     // -------------------------
@@ -304,6 +304,9 @@ int main()
         glm::mat4 terrainModel = glm::mat4(1.0f);
         terrain.drawTerrain(terrainShader, terrainModel);
 
+        // disable backface culling for foliage only
+        // glDisable(GL_CULL_FACE);
+
         // ===== DRAW GRASS =====
         grassShader.use();
         grassShader.setMat4("view", view);
@@ -349,8 +352,11 @@ int main()
 
         trees.Draw(treeShader, view, projection, frustum, camera);
 
+        // enable backface culling for everything else
+        // glEnable(GL_CULL_FACE);
+
         // ===== DRAW FIREFLIES =====
-        glDisable(GL_CULL_FACE); // Fireflies visible from all angles
+        glDisable(GL_CULL_FACE);
         fireflies.Draw(fireflyShader, view, projection);
         glEnable(GL_CULL_FACE);
 

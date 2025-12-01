@@ -98,37 +98,32 @@ void Foliage::generatePositions() {
 }
 
 void Foliage::setupCrossQuad() {
-    vector<float> vertices;
-    vector<unsigned int> indices;
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
     
-    auto addQuad = [&](float angleY, unsigned int baseIdx) {
-        float c = cos(glm::radians(angleY));
-        float s = sin(glm::radians(angleY));
-        glm::vec3 normal(s, 0, c);
-        
-        float x1 = -width/2 * c;
-        float z1 = -width/2 * s;
-        float x2 = width/2 * c;
-        float z2 = width/2 * s;
-        
-        // Pos, Normal, TexCoord (8 floats per vertex)
-        vertices.insert(vertices.end(), {x1, 0.0f, z1, normal.x, normal.y, normal.z, 0.0f, 0.0f});
-        vertices.insert(vertices.end(), {x2, 0.0f, z2, normal.x, normal.y, normal.z, 1.0f, 0.0f});
-        vertices.insert(vertices.end(), {x2, height, z2, normal.x, normal.y, normal.z, 1.0f, 1.0f});
-        vertices.insert(vertices.end(), {x1, height, z1, normal.x, normal.y, normal.z, 0.0f, 1.0f});
-        
-        indices.push_back(baseIdx + 0u);
-        indices.push_back(baseIdx + 1u);
-        indices.push_back(baseIdx + 2u);
-        indices.push_back(baseIdx + 0u);
-        indices.push_back(baseIdx + 2u);
-        indices.push_back(baseIdx + 3u);
+    // SINGLE QUAD (not cross-quad) - will be rotated by billboard shader
+    // Centered at origin, extends in X (width) and Y (height)
+    
+    float halfWidth = width / 2.0f;
+    
+    // 4 corners of a single quad
+    // Position (XYZ), Normal (XYZ), TexCoord (UV)
+    vertices = {
+        // Bottom left
+        -halfWidth, 0.0f, 0.0f,  0.0f, 0.0f, 1.0f,  0.0f, 0.0f,
+        // Bottom right  
+        halfWidth, 0.0f, 0.0f,   0.0f, 0.0f, 1.0f,  1.0f, 0.0f,
+        // Top right
+        halfWidth, height, 0.0f, 0.0f, 0.0f, 1.0f,  1.0f, 1.0f,
+        // Top left
+        -halfWidth, height, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f
     };
     
-    // 3 cross quads for all foliage types
-    addQuad(0.0f, 0u);
-    addQuad(60.0f, 4u);
-    addQuad(120.0f, 8u);
+    // Two triangles forming the quad
+    indices = {
+        0, 1, 2,  // First triangle
+        0, 2, 3   // Second triangle
+    };
     
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -161,7 +156,7 @@ void Foliage::Draw(Shader& shader, const glm::mat4& view, const glm::mat4& proje
                    const Camera::Frustum& frustum, const Camera& camera) {
     visiblePositions.clear();
     
-    // Frustum culling
+    // Frustum culling - THIS RUNS EVERY FRAME
     for (const auto& pos : positions) {
         if (camera.IsSphereInFrustum(frustum, pos, boundingRadius)) {
             visiblePositions.push_back(pos);
@@ -171,24 +166,27 @@ void Foliage::Draw(Shader& shader, const glm::mat4& view, const glm::mat4& proje
     // Debug output every 60 frames
     static int frameCount = 0;
     if (frameCount++ % 60 == 0) {
-        string typeName;
+        std::string typeName;
         switch(type) {
             case FoliageType::GRASS: typeName = "Grass"; break;
             case FoliageType::FLOWER: typeName = "Flowers"; break;
             case FoliageType::TREE: typeName = "Trees"; break;
         }
-        cout << typeName << ": Rendering " << visiblePositions.size() 
-                  << " / " << positions.size() << " instances" << endl;
+        std::cout << typeName << ": Rendering " << visiblePositions.size() 
+                  << " / " << positions.size() << " instances" << std::endl;
     }
     
     if (visiblePositions.empty()) return;
     
-    // Update instance buffer
+    // Update instance buffer EVERY FRAME
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, visiblePositions.size() * sizeof(glm::vec3),
                  visiblePositions.data(), GL_DYNAMIC_DRAW);
     
+    // IMPORTANT: Bind VAO and draw
+    // Shader uniforms are already set in main.cpp before calling Draw()
     glBindVertexArray(VAO);
-    glDrawElementsInstanced(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0, static_cast<GLsizei>(visiblePositions.size()));
+    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, 
+                           static_cast<GLsizei>(visiblePositions.size()));
     glBindVertexArray(0);
 }

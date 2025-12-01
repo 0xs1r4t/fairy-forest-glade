@@ -69,7 +69,7 @@ void Firefly::generateIcosphere(vector<float>& vertices, vector<unsigned int>& i
     // For fireflies, we want VERY simple geometry
     
     const float t = (1.0f + sqrt(5.0f)) / 2.0f;
-    const float scale = 0.05f; // Tiny fireflies!
+    const float scale = 0.02f; // scale for rendering tiny fireflies
     
     // 12 vertices of icosahedron
     vector<glm::vec3> verts = {

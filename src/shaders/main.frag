@@ -71,7 +71,7 @@ void main() {
             float attenuation = 1.0 / (1.0 + 0.5 * distance + 0.3 * distance * distance);
             
             float diff = max(dot(norm, fireflyDir), 0.0);
-            vec3 diffuse = diff * fireflyColors[i] * attenuation * 0.5;
+            vec3 diffuse = diff * fireflyColors[i] * attenuation * 0.2; // REDUCED from 0.5 to 0.2
             
             result += diffuse * materialColor;
         }

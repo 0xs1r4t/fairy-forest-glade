@@ -8,19 +8,39 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform vec3 fairyPos;
 uniform float fairyRadius;
+uniform vec3 viewPos;
 
 out vec2 TexCoords;
 out vec3 Normal;
 out vec3 FragPos;
 
 void main() {
-    vec3 worldPos = aPos + instanceOffset;
+    // Get camera right and up vectors from view matrix
+    vec3 cameraRight = vec3(view[0][0], view[1][0], view[2][0]);
+    vec3 cameraUp = vec3(0.0, 1.0, 0.0); // Keep upright (cylindrical billboard)
     
-    // Trees don't scale with fairy (too big), but we keep the uniform for consistency
+    // For perfect spherical billboarding (faces camera even when looking down):
+    // vec3 cameraUp = vec3(view[0][1], view[1][1], view[2][1]);
     
-    FragPos = worldPos;
-    Normal = aNormal;
+    // Flora interaction - scale up near fairy
+    float dist = length(vec2(fairyPos.x - instanceOffset.x, fairyPos.z - instanceOffset.z));
+    float influence = smoothstep(fairyRadius, 0.0, dist);
+    float extraScale = 1.0 + influence * 0.3;
+    
+    // Reconstruct vertex position to face camera
+    // aPos.x and aPos.z determine offset from center
+    // aPos.y is the height
+    vec3 billboardPos = instanceOffset + 
+                        cameraRight * aPos.x + 
+                        cameraUp * aPos.y * extraScale; // Apply scaling to height
+    
+    FragPos = billboardPos;
     TexCoords = aTexCoords;
+    
+    // Normal faces camera
+    vec3 toCamera = viewPos - instanceOffset;
+    toCamera.y = 0.0; // Cylindrical
+    Normal = normalize(toCamera);
     
     gl_Position = projection * view * vec4(FragPos, 1.0);
 }

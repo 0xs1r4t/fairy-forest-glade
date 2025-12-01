@@ -7,18 +7,18 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform float time;
 
-out vec3 FragColor;
+out vec3 Color;
 out float Glow;
 
 void main() {
-    // Pulsing size effect
+    // Stronger pulsing effect
     float pulse = sin(time * 3.0 + aOffset.x + aOffset.z) * 0.5 + 0.5;
-    float scale = 1.0 + pulse * 0.3;
+    float scale = 1.5 + pulse * 0.8; // BIGGER pulsing
     
     vec3 worldPos = aPos * scale + aOffset;
     
     gl_Position = projection * view * vec4(worldPos, 1.0);
     
-    FragColor = aColor;
-    Glow = 0.8 + pulse * 0.2; // Pulsing glow intensity
+    Color = aColor;
+    Glow = 0.9 + pulse * 0.1; // Consistent bright glow
 }
