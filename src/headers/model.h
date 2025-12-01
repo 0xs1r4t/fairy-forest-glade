@@ -9,9 +9,6 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include "mesh.h"
-#include "shader.h"
-
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -19,6 +16,9 @@
 #include <map>
 #include <vector>
 using namespace std;
+
+#include "mesh.h"
+#include "shader.h"
 
 inline unsigned int TextureFromFile(const char *path, const string &directory, bool gamma = false);
 
@@ -156,10 +156,10 @@ private:
         vector<Texture> specularMaps = loadMaterialTextures(material, aiTextureType_SPECULAR, "texture_specular");
         textures.insert(textures.end(), specularMaps.begin(), specularMaps.end());
         // 3. normal maps
-        std::vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
+        vector<Texture> normalMaps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
         textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
         // 4. height maps
-        std::vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
+        vector<Texture> heightMaps = loadMaterialTextures(material, aiTextureType_AMBIENT, "texture_height");
         textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
 
         // return a mesh object created from the extracted mesh data
@@ -179,7 +179,7 @@ private:
             bool skip = false;
             for (unsigned int j = 0; j < textures_loaded.size(); j++)
             {
-                if (std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0)
+                if (strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0)
                 {
                     textures.push_back(textures_loaded[j]);
                     skip = true; // a texture with the same filepath has already been loaded, continue to next one. (optimization)
@@ -233,7 +233,7 @@ inline unsigned int TextureFromFile(const char *path, const string &directory, b
     }
     else
     {
-        std::cout << "Texture failed to load at path: " << path << std::endl;
+        cout << "Texture failed to load at path: " << path << endl;
         stbi_image_free(data);
     }
 

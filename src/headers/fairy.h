@@ -2,6 +2,7 @@
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
+
 #include "model.h"
 #include "shader.h"
 #include "model_instance.h"

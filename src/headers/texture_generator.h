@@ -4,12 +4,13 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
+using namespace std;
 
 class TextureGenerator {
 public:
     // Generate grass texture with green gradient and alpha
-    static std::vector<unsigned char> GenerateGrassTexture(int width, int height) {
-        std::vector<unsigned char> data(width * height * 4); // RGBA
+    static vector<unsigned char> GenerateGrassTexture(int width, int height) {
+        vector<unsigned char> data(width * height * 4); // RGBA
         
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -17,7 +18,7 @@ public:
                 
                 // Create grass blade shape
                 float centerX = width / 2.0f;
-                float distFromCenter = std::abs((float)x - centerX);
+                float distFromCenter = abs((float)x - centerX);
                 
                 // Height factor: 0 at bottom, 1 at top
                 float heightFactor = y / (float)height;
@@ -28,8 +29,8 @@ public:
                 
                 // Create multiple blades for variety
                 bool blade1 = distFromCenter < bladeWidth * 0.4f;
-                bool blade2 = std::abs((float)x - width * 0.3f) < bladeWidth * 0.3f;
-                bool blade3 = std::abs((float)x - width * 0.7f) < bladeWidth * 0.3f;
+                bool blade2 = abs((float)x - width * 0.3f) < bladeWidth * 0.3f;
+                bool blade3 = abs((float)x - width * 0.7f) < bladeWidth * 0.3f;
                 
                 bool isGrass = blade1 || blade2 || blade3;
                 
@@ -66,8 +67,8 @@ public:
     }
     
     // Generate flower texture with petals and stem
-    static std::vector<unsigned char> GenerateFlowerTexture(int width, int height) {
-        std::vector<unsigned char> data(width * height * 4);
+    static vector<unsigned char> GenerateFlowerTexture(int width, int height) {
+        vector<unsigned char> data(width * height * 4);
         
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -79,11 +80,11 @@ public:
                 // Distance from flower center
                 float dx = x - centerX;
                 float dy = y - centerY;
-                float distFromFlowerCenter = std::sqrt(dx * dx + dy * dy);
+                float distFromFlowerCenter = sqrt(dx * dx + dy * dy);
                 
                 // Stem parameters
                 float stemWidth = width * 0.06f;
-                float distFromStemCenter = std::abs((float)x - centerX);
+                float distFromStemCenter = abs((float)x - centerX);
                 
                 // Check if this pixel is part of flower (top half)
                 bool isPetal = (y > height * 0.5f && distFromFlowerCenter < width * 0.25f);
@@ -94,8 +95,8 @@ public:
                 if (isPetal) {
                     // Pink/purple petals
                     // Create petal pattern with some variation
-                    float angle = std::atan2(dy, dx);
-                    float petalPattern = std::sin(angle * 5.0f) * 0.5f + 0.5f; // 5 petals
+                    float angle = atan2(dy, dx);
+                    float petalPattern = sin(angle * 5.0f) * 0.5f + 0.5f; // 5 petals
                     
                     // Color varies from center to edge
                     float colorFactor = 1.0f - (distFromFlowerCenter / (width * 0.25f));
@@ -128,8 +129,8 @@ public:
     }
     
     // Generate tree texture with trunk and foliage
-    static std::vector<unsigned char> GenerateTreeTexture(int width, int height) {
-        std::vector<unsigned char> data(width * height * 4);
+    static vector<unsigned char> GenerateTreeTexture(int width, int height) {
+        vector<unsigned char> data(width * height * 4);
         
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -137,7 +138,7 @@ public:
                 
                 float centerX = width / 2.0f;
                 float heightFactor = y / (float)height;
-                float distFromCenter = std::abs((float)x - centerX);
+                float distFromCenter = abs((float)x - centerX);
                 
                 // Trunk: bottom 40% of texture, thin vertical strip
                 bool isTrunk = (heightFactor < 0.4f && 
@@ -193,12 +194,12 @@ public:
     }
     
     // Helper: Generate a simple solid color texture
-    static std::vector<unsigned char> GenerateSolidColor(int width, int height, 
+    static vector<unsigned char> GenerateSolidColor(int width, int height, 
                                                           unsigned char r, 
                                                           unsigned char g, 
                                                           unsigned char b, 
                                                           unsigned char a = 255) {
-        std::vector<unsigned char> data(width * height * 4);
+        vector<unsigned char> data(width * height * 4);
         
         for (int i = 0; i < width * height; i++) {
             data[i * 4 + 0] = r;
@@ -211,7 +212,7 @@ public:
     }
     
     // Helper: Add noise to a texture
-    static void AddNoise(std::vector<unsigned char>& data, int width, int height, float intensity) {
+    static void AddNoise(vector<unsigned char>& data, int width, int height, float intensity) {
         for (int i = 0; i < width * height; i++) {
             // Only add noise to non-transparent pixels
             if (data[i * 4 + 3] > 0) {
@@ -219,7 +220,7 @@ public:
                 
                 for (int c = 0; c < 3; c++) { // RGB only, not alpha
                     int newVal = data[i * 4 + c] + (int)(noise * intensity);
-                    data[i * 4 + c] = (unsigned char)std::max(0, std::min(255, newVal));
+                    data[i * 4 + c] = (unsigned char)max(0, min(255, newVal));
                 }
             }
         }

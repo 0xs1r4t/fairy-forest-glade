@@ -1,13 +1,15 @@
-#include "foliage.h"
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 #include <random>
+using namespace std;
+
+#include "foliage.h"
 
 Foliage::Foliage(Terrain* terrain, FoliageType type, int count, float height, float width)
     : terrain(terrain), type(type), count(count), height(height), width(width) {
     
-    std::string typeName;
+    string typeName;
     switch(type) {
         case FoliageType::GRASS:
             typeName = "grass";
@@ -23,7 +25,7 @@ Foliage::Foliage(Terrain* terrain, FoliageType type, int count, float height, fl
             break;
     }
     
-    std::cout << "Generating " << typeName << " positions..." << std::endl;
+    cout << "Generating " << typeName << " positions..." << endl;
     
     // Pre-allocate memory
     positions.reserve(count);
@@ -32,7 +34,7 @@ Foliage::Foliage(Terrain* terrain, FoliageType type, int count, float height, fl
     // Generate positions on terrain
     generatePositions();
     
-    std::cout << "Placed " << positions.size() << " " << typeName << " instances" << std::endl;
+    cout << "Placed " << positions.size() << " " << typeName << " instances" << endl;
     
     // Setup cross-quad geometry
     setupCrossQuad();
@@ -96,8 +98,8 @@ void Foliage::generatePositions() {
 }
 
 void Foliage::setupCrossQuad() {
-    std::vector<float> vertices;
-    std::vector<unsigned int> indices;
+    vector<float> vertices;
+    vector<unsigned int> indices;
     
     auto addQuad = [&](float angleY, unsigned int baseIdx) {
         float c = cos(glm::radians(angleY));
@@ -169,14 +171,14 @@ void Foliage::Draw(Shader& shader, const glm::mat4& view, const glm::mat4& proje
     // Debug output every 60 frames
     static int frameCount = 0;
     if (frameCount++ % 60 == 0) {
-        std::string typeName;
+        string typeName;
         switch(type) {
             case FoliageType::GRASS: typeName = "Grass"; break;
             case FoliageType::FLOWER: typeName = "Flowers"; break;
             case FoliageType::TREE: typeName = "Trees"; break;
         }
-        std::cout << typeName << ": Rendering " << visiblePositions.size() 
-                  << " / " << positions.size() << " instances" << std::endl;
+        cout << typeName << ": Rendering " << visiblePositions.size() 
+                  << " / " << positions.size() << " instances" << endl;
     }
     
     if (visiblePositions.empty()) return;

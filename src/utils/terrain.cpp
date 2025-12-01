@@ -1,6 +1,8 @@
+#include <iostream>
+using namespace std;
+
 #include "terrain.h"
 #include "noise.h"
-#include <iostream>
 
 Terrain::Terrain(int width, int height, float scale, float heightScale)
     : width(width), height(height), scale(scale), heightScale(heightScale)
@@ -97,9 +99,9 @@ void Terrain::generateTerrain()
 
     calculateNormals();
 
-    std::cout << "Terrain generated: " << width << "x" << height
+    cout << "Terrain generated: " << width << "x" << height
               << " (" << vertices.size() << " vertices, "
-              << indices.size() / 3 << " triangles)" << std::endl;
+              << indices.size() / 3 << " triangles)" << endl;
 }
 
 void Terrain::calculateNormals()

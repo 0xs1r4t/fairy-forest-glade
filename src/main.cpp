@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <iostream>
+#include <algorithm>
 using namespace std;
 
 #include "shader.h"
@@ -10,8 +11,7 @@ using namespace std;
 #include "skybox.h"
 #include "terrain.h"
 #include "fairy.h"
-#include "grass.h"
-#include "flowers.h"
+#include "firefly.h"
 #include "foliage.h"
 #include "texture_generator.h"
 #include "model.h"
@@ -84,7 +84,6 @@ int main()
 
     // camera + controller setup
     // -------------------------
-    // Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
     Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
     CameraController cameraController(&camera, SCR_WIDTH, SCR_HEIGHT);
 
@@ -96,11 +95,12 @@ int main()
     // build and compile shaders
     cout << "Loading shaders..." << endl;
     Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
-    Shader skyboxShader("src/shaders/skybox.vert", "src/shaders/skybox.frag");
-    Shader terrainShader("src/shaders/terrain.vert", "src/shaders/terrain.frag");
-    Shader grassShader("src/shaders/grass.vert", "src/shaders/grass.frag");
-    Shader flowerShader("src/shaders/flower.vert", "src/shaders/flower.frag");
-    Shader treeShader("src/shaders/tree.vert", "src/shaders/tree.frag");
+    Shader skyboxShader("src/shaders/skybox/skybox.vert", "src/shaders/skybox/skybox.frag");
+    Shader terrainShader("src/shaders/terrain/terrain.vert", "src/shaders/terrain/terrain.frag");
+    Shader grassShader("src/shaders/grass/grass.vert", "src/shaders/grass/grass.frag");
+    Shader flowerShader("src/shaders/flower/flower.vert", "src/shaders/flower/flower.frag");
+    Shader treeShader("src/shaders/tree/tree.vert", "src/shaders/tree/tree.frag");
+    Shader fireflyShader("src/shaders/firefly/firefly.vert", "src/shaders/firefly/firefly.frag");
     cout << "Shaders loaded successfully!" << endl;
 
     // Create skybox with HDRI
@@ -117,10 +117,14 @@ int main()
                 "src/assets/models/fairy/fairy_lower_right_wing.obj");
 
     fairy.flapSpeed = 1.0f;
-    fairy.wingColor = glm::vec3(0.95f, 0.98f, 1.0f); // Very light cyan-white
-    fairy.bodyColor = glm::vec3(0.95f, 0.8f, 0.95f); // Light lavender
+    fairy.wingColor = glm::vec3(0.95f, 0.98f, 1.0f); // Very light cyan-white (glowing)
+    fairy.bodyColor = glm::vec3(1.0f, 0.95f, 0.9f);  // Warm glow
     fairy.bodyShininess = 1.0f;
     fairy.wingShininess = 1.0f;
+
+    // create fireflies around fairy
+    // -----------------------------
+    Firefly fireflies(100, fairy.GetPosition(), 5.0f); // 100 fireflies in 5m radius
 
     // ===== CREATE TERRAIN =====
     cout << "Generating terrain..." << endl;
@@ -128,23 +132,18 @@ int main()
     cout << "Terrain generated!" << endl;
 
     // ===== CREATE FOLIAGE =====
+    cout << "Generating foliage..." << endl;
+    
     // grass
-    cout << "Generating grass..." << endl;
-    // Model grassModel("src/assets/models/foliage/grass.obj"); of grass on the terrain
-    // Grass grass(&terrain, 10000);
     Foliage grass(&terrain, FoliageType::GRASS, 50000, 0.8f, 0.4f);
-
-
+    
     // flowers
-    cout << "Generating flowers..." << endl;
-    // Model flowerModel("src/assets/models/foliage/flowers.obj");
-    // Flowers flowers(&terrain, &flowerModel, 2000); // number of instances of flowers on the terrain
     Foliage flowers(&terrain, FoliageType::FLOWER, 5000, 1.2f, 0.6f);
-
+    
     // trees
-    cout << "Generating trees..." << endl;
     Foliage trees(&terrain, FoliageType::TREE, 200, 6.0f, 3.0f);
-
+    
+    cout << "Foliage generated!" << endl;
 
     // ===== TEXTURE SETUP (GENERATE PROCEDURAL TEXTURES) =====
     cout << "Generating procedural textures..." << endl;
@@ -154,7 +153,7 @@ int main()
     glGenTextures(1, &grassTex);
     glBindTexture(GL_TEXTURE_2D, grassTex);
 
-    std::vector<unsigned char> grassTexData = TextureGenerator::GenerateGrassTexture(512, 512);
+    vector<unsigned char> grassTexData = TextureGenerator::GenerateGrassTexture(512, 512);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, grassTexData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -167,7 +166,7 @@ int main()
     glGenTextures(1, &flowerTex);
     glBindTexture(GL_TEXTURE_2D, flowerTex);
 
-    std::vector<unsigned char> flowerTexData = TextureGenerator::GenerateFlowerTexture(512, 512);
+    vector<unsigned char> flowerTexData = TextureGenerator::GenerateFlowerTexture(512, 512);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, flowerTexData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -180,7 +179,7 @@ int main()
     glGenTextures(1, &treeTex);
     glBindTexture(GL_TEXTURE_2D, treeTex);
 
-    std::vector<unsigned char> treeTexData = TextureGenerator::GenerateTreeTexture(1024, 1024);
+    vector<unsigned char> treeTexData = TextureGenerator::GenerateTreeTexture(1024, 1024);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, treeTexData.data());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -195,25 +194,22 @@ int main()
 
     // camera controls info
     // --------------------
-    cout << "\n\n=== CONTROLS ===\n"
-         << endl;
+    cout << "\n\n=== CONTROLS ===\n" << endl;
     cout << "Camera Controls (Left Hand):" << endl;
     cout << "  WASD: Move camera" << endl;
     cout << "  Mouse: Look around" << endl;
-    cout << "  Scroll: Zoom in/out\n"
-         << endl;
+    cout << "  Scroll: Zoom in/out\n" << endl;
 
     cout << "Fairy Controls (Right Hand):" << endl;
     cout << "  Arrow Keys: Move fairy (forward/back/left/right)" << endl;
     cout << "  I/K: Fly up/down" << endl;
-    cout << "  J/L: Rotate left/right\n"
-         << endl;
+    cout << "  J/L: Rotate left/right\n" << endl;
 
     cout << "ESC: Exit" << endl;
-    cout << "===================\n"
-         << endl;
+    cout << "===================\n" << endl;
 
     cout << "\nStarting render loop..." << endl;
+    
     // timing
     float lastFrame = 0.0f;
 
@@ -233,16 +229,41 @@ int main()
 
         // render
         // ------
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // bind textures on corresponding texture units
+        glClearColor(0.01f, 0.01f, 0.02f, 1.0f); // Very dark night sky
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Setup matrices (used by both objects and skybox)
-        glm::mat4 projection = glm::perspective(glm::radians(75.0f), // Try 75 degrees
+        glm::mat4 projection = glm::perspective(glm::radians(75.0f),
                                                 (float)SCR_WIDTH / (float)SCR_HEIGHT,
                                                 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
 
-        // ===== DRAW OBJECTS =====
+        // ===== LIGHTING SETUP =====
+        // Moonlight - weak directional light from above
+        glm::vec3 lightPos(10.0f, 20.0f, 10.0f);
+        glm::vec3 lightColor(0.7f, 0.8f, 1.0f); // Cool blue moonlight
+        
+        // Fairy light - warm point light
+        glm::vec3 fairyLightPos = fairy.GetPosition() + glm::vec3(0.0f, 1.5f, 0.0f);
+        glm::vec3 fairyLightColor(1.0f, 0.9f, 0.6f); // Warm yellow glow
+        
+        // Get firefly positions and colors for lighting
+        auto fireflyPositions = fireflies.GetPositions();
+        auto fireflyColors = fireflies.GetColors();
+        int numFireflyLights = min(8, (int)fireflyPositions.size()); // Max 8 for performance
+
+        // Calculate frustum for foliage culling
+        Camera::Frustum frustum = camera.GetFrustum(
+            (float)SCR_WIDTH / (float)SCR_HEIGHT,
+            glm::radians(75.0f),
+            0.1f,
+            100.0f);
+
+        // ===== UPDATE ANIMATIONS =====
+        fairy.Update(currentFrame, g_deltaTime);
+        fireflies.Update(g_deltaTime, fairy.GetPosition());
+
+        // ===== DRAW FAIRY (with firefly lighting) =====
         mainShader.use();
 
         // Bind HDRI texture for objects (for reflections/ambient)
@@ -250,31 +271,26 @@ int main()
         glBindTexture(GL_TEXTURE_2D, skybox.GetTextureID());
         mainShader.setInt("environmentMap", 0);
 
-        // Lighting uniforms
-        glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
-        glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
-        glm::vec3 fairyLightPos = fairy.GetPosition() + glm::vec3(0.0f, 1.5f, 0.0f);
-        glm::vec3 fairyLightColor(1.0f, 0.9f, 0.6f); // Warm glow
+        // Set matrices
+        mainShader.setMat4("projection", projection);
+        mainShader.setMat4("view", view);
+        mainShader.setVec3("viewPos", camera.Position);
 
+        // Set lighting uniforms
         mainShader.setVec3("lightPos", lightPos);
         mainShader.setVec3("lightColor", lightColor);
         mainShader.setVec3("fairyLightPos", fairyLightPos);
         mainShader.setVec3("fairyLightColor", fairyLightColor);
-        mainShader.setVec3("viewPos", camera.Position);
+        
+        // Pass firefly lights (up to 8 closest ones)
+        mainShader.setInt("numFireflies", numFireflyLights);
+        for (int i = 0; i < numFireflyLights; i++) {
+            string posName = "fireflyPositions[" + to_string(i) + "]";
+            string colorName = "fireflyColors[" + to_string(i) + "]";
+            mainShader.setVec3(posName, fireflyPositions[i]);
+            mainShader.setVec3(colorName, fireflyColors[i]);
+        }
 
-        // Set matrices
-        mainShader.setMat4("projection", projection);
-        mainShader.setMat4("view", view);
-
-        // Calculate frustum and pass it to all foliage for culling
-        Camera::Frustum frustum = camera.GetFrustum(
-            (float)SCR_WIDTH / (float)SCR_HEIGHT,
-            glm::radians(75.0f), // Match the FOV here too
-            0.1f,
-            100.0f);
-
-        // ===== UPDATE AND DRAW FAIRY =====
-        fairy.Update(currentFrame, g_deltaTime);
         fairy.Draw(mainShader);
 
         // ===== DRAW TERRAIN =====
@@ -286,7 +302,6 @@ int main()
         terrainShader.setMat4("view", view);
 
         glm::mat4 terrainModel = glm::mat4(1.0f);
-        // terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -5.0f, 0.0f));
         terrain.drawTerrain(terrainShader, terrainModel);
 
         // ===== DRAW GRASS =====
@@ -320,7 +335,7 @@ int main()
         flowers.Draw(flowerShader, view, projection, frustum, camera);
 
         // ===== DRAW TREES =====
-        treeShader.use(); // Use dedicated tree shader
+        treeShader.use();
         treeShader.setMat4("view", view);
         treeShader.setMat4("projection", projection);
         treeShader.setVec3("fairyPos", fairy.GetPosition());
@@ -333,6 +348,11 @@ int main()
         treeShader.setInt("treeTexture", 0);
 
         trees.Draw(treeShader, view, projection, frustum, camera);
+
+        // ===== DRAW FIREFLIES =====
+        glDisable(GL_CULL_FACE); // Fireflies visible from all angles
+        fireflies.Draw(fireflyShader, view, projection);
+        glEnable(GL_CULL_FACE);
 
         // ===== DRAW SKYBOX (LAST) =====
         skybox.Draw(skyboxShader, view, projection);

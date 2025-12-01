@@ -1,7 +1,7 @@
-#include "fairy.h"
-
 #include <iostream>
 using namespace std;
+
+#include "fairy.h"
 
 Fairy::Fairy(const char *bodyPath,
              const char *leftUpperWingPath,

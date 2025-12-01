@@ -59,12 +59,12 @@ unsigned int loadHDR(const char *path, int &width, int &height)
         glGenerateMipmap(GL_TEXTURE_2D);
         delete[] data;
 
-        std::cout << "HDR texture loaded: " << width << "x" << height << std::endl;
+        cout << "HDR texture loaded: " << width << "x" << height << endl;
         return textureID;
     }
-    catch (const std::exception &e)
+    catch (const exception &e)
     {
-        std::cerr << "Error loading EXR file: " << e.what() << std::endl;
+        cerr << "Error loading EXR file: " << e.what() << endl;
         return 0;
     }
 }

@@ -1,8 +1,8 @@
-#include "skybox.h"
-#include "hdri_loader.h"
-
 #include <iostream>
 using namespace std;
+
+#include "skybox.h"
+#include "hdri_loader.h"
 
 Skybox::Skybox(const char *hdriPath)
 {
