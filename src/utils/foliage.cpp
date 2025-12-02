@@ -1,3 +1,5 @@
+#include <glm/glm.hpp>
+
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
@@ -6,8 +8,9 @@ using namespace std;
 
 #include "foliage.h"
 
-Foliage::Foliage(Terrain *terrain, FoliageType type, int count, float height, float width)
-    : terrain(terrain), type(type), count(count), height(height), width(width)
+Foliage::Foliage(Terrain *terrain, FoliageType type, int count, float height, float width,
+                 const LODConfig &lodConfig)
+    : terrain(terrain), type(type), count(count), height(height), width(width), lodConfig(lodConfig)
 {
 
     string typeName;
@@ -64,34 +67,27 @@ void Foliage::generatePositions()
     int attempts = count * 2;
     for (int i = 0; i < attempts && static_cast<int>(positions.size()) < count; i++)
     {
-        float x = ((float)rand() / RAND_MAX) * (terrain->width * terrain->scale) -
-                  (terrain->width * terrain->scale) / 2.0f;
-        float z = ((float)rand() / RAND_MAX) * (terrain->height * terrain->scale) -
-                  (terrain->height * terrain->scale) / 2.0f;
-
+        float x = (float(rand()) / RAND_MAX) * terrain->width * terrain->scale - (terrain->width * terrain->scale / 2.0f);
+        float z = (float(rand()) / RAND_MAX) * terrain->height * terrain->scale - (terrain->height * terrain->scale / 2.0f);
         float y = terrain->getHeight(x, z);
         glm::vec3 normal = terrain->getNormal(x, z);
 
-        // Different placement criteria based on type
         bool validPlacement = false;
-
         switch (type)
         {
         case FoliageType::GRASS:
             // Grass grows almost anywhere flat
-            validPlacement = (normal.y > 0.5f && y > -6.0f);
+            validPlacement = (normal.y > 0.5f && y > -3.0f); // <- CHANGED (removed upper limit)
             break;
 
         case FoliageType::FLOWER:
-            // Flowers prefer flatter, slightly elevated areas
-            validPlacement = (normal.y > 0.7f && y > -4.0f && y < 3.0f);
+            // Flowers prefer flatter, mid-elevation areas
+            validPlacement = (normal.y > 0.7f && y > 0.0f && y < 7.0f); // <- CHANGED (was -4 to 3)
             break;
         }
 
         if (validPlacement)
-        {
             positions.push_back(glm::vec3(x, y, z));
-        }
     }
 }
 
@@ -155,43 +151,76 @@ void Foliage::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &proje
 {
     visiblePositions.clear();
 
-    // Frustum culling - THIS RUNS EVERY FRAME
     for (const auto &pos : positions)
     {
-        if (camera.IsSphereInFrustum(frustum, pos, boundingRadius))
+        // Frustum culling
+        if (!camera.IsSphereInFrustum(frustum, pos, boundingRadius))
+        {
+            continue;
+        }
+
+        // Calculate distance
+        float distance = glm::distance(camera.Position, pos);
+
+        // LOD culling
+        if (distance > lodConfig.farDistance)
+            continue;
+
+        // DENSITY SAMPLING with ULTRA-NEAR zone
+        float densityThreshold;
+
+        if (type == FoliageType::GRASS)
+        {
+            // GRASS: Ultra-dense within 8m, then normal LOD
+            if (distance < 8.0f)
+            {
+                densityThreshold = 1.0f; // 100% density carpet
+            }
+            else if (distance < lodConfig.nearDistance)
+            {
+                // Smooth transition from ultra-near to near
+                float t = (distance - 8.0f) / (lodConfig.nearDistance - 8.0f);
+                densityThreshold = glm::mix(1.0f, lodConfig.nearDensity, t);
+            }
+            else
+            {
+                densityThreshold = lodConfig.GetDensityMultiplier(distance);
+            }
+        }
+        else
+        {
+            // Other foliage uses normal LOD
+            densityThreshold = lodConfig.GetDensityMultiplier(distance);
+        }
+
+        // Deterministic hash for stable sampling
+        unsigned int hash = (unsigned int)(pos.x * 73856093) ^
+                            (unsigned int)(pos.z * 19349663);
+        float random = (hash % 1000) / 1000.0f;
+
+        if (random < densityThreshold)
         {
             visiblePositions.push_back(pos);
         }
     }
 
-    // Debug output every 60 frames
+    // Debug output
     static int frameCount = 0;
-    if (frameCount++ % 60 == 0)
+    if (++frameCount % 60 == 0)
     {
-        std::string typeName;
-        switch (type)
-        {
-        case FoliageType::GRASS:
-            typeName = "Grass";
-            break;
-        case FoliageType::FLOWER:
-            typeName = "Flowers";
-            break;
-        }
+        std::string typeName = (type == FoliageType::GRASS) ? "Grass" : "Flowers";
         std::cout << typeName << ": Rendering " << visiblePositions.size()
-                  << " / " << positions.size() << " instances" << std::endl;
+                  << " / " << positions.size() << " instances (LOD active)" << std::endl;
     }
 
     if (visiblePositions.empty())
         return;
 
-    // Update instance buffer EVERY FRAME
+    // Update instance buffer
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, visiblePositions.size() * sizeof(glm::vec3),
                  visiblePositions.data(), GL_DYNAMIC_DRAW);
 
-    // IMPORTANT: Bind VAO and draw
-    // Shader uniforms are already set in main.cpp before calling Draw()
     glBindVertexArray(VAO);
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0,
                             static_cast<GLsizei>(visiblePositions.size()));

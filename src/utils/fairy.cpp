@@ -159,6 +159,12 @@ void Fairy::FlyUp(float deltaTime)
 void Fairy::FlyDown(float deltaTime)
 {
     body.position.y -= flySpeed * deltaTime;
+
+    // Clamp to minimum height
+    if (body.position.y < minHeight)
+    {
+        body.position.y = minHeight;
+    }
 }
 
 // Move forward in the direction the fairy is facing

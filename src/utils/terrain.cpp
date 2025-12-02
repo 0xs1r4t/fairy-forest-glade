@@ -33,13 +33,19 @@ void Terrain::generateTerrain()
             float xPos = x * scale;
             float zPos = z * scale;
 
-            // Use FBM for natural-looking terrain
-            glm::vec2 samplePos = glm::vec2(x, z) * frequency;
+            // INCREASED frequency for more varied terrain
+            glm::vec2 samplePos = glm::vec2(x, z) * frequency * 1.5f; // <- CHANGED (added *1.5)
             float heightValue = Noise::warpedFBM(samplePos, octaves);
 
-            // Add some ridges for variety
+            // More pronounced ridges
             float ridges = Noise::ridgedNoise(samplePos * 0.5f, 4);
-            heightValue = glm::mix(heightValue, ridges, 0.3f);
+            heightValue = glm::mix(heightValue, ridges, 0.4f); // <- CHANGED (was 0.3)
+
+            // Add valleys (dip low areas)
+            if (heightValue < 0.3f)
+            {
+                heightValue *= 0.6f; // <- NEW: Deepen valleys
+            }
 
             float yPos = heightValue * heightScale;
             heightMap[z * width + x] = yPos;
@@ -49,33 +55,15 @@ void Terrain::generateTerrain()
             vertex.position = glm::vec3(xPos - (width * scale) / 2.0f, yPos, zPos - (height * scale) / 2.0f);
             vertex.texCoords = glm::vec2((float)x / width, (float)z / height);
 
-            // Procedural coloring based on height
-            if (yPos < heightScale * 0.2f)
-            {
-                // Low areas - grass
-                vertex.colour = glm::vec3(0.2f, 0.6f, 0.2f);
-            }
-            else if (yPos < heightScale * 0.5f)
-            {
-                // Mid areas - forest
-                vertex.colour = glm::vec3(0.15f, 0.4f, 0.15f);
-            }
-            else if (yPos < heightScale * 0.75f)
-            {
-                // High areas - rocky
-                vertex.colour = glm::vec3(0.5f, 0.4f, 0.3f);
-            }
-            else
-            {
-                // Peaks - snow
-                vertex.colour = glm::vec3(0.9f, 0.9f, 0.95f);
-            }
+            // REMOVE old color code - cel-shader will handle this
+            // Just set a placeholder
+            vertex.colour = glm::vec3(0.3f, 0.5f, 0.3f);
 
             vertices.push_back(vertex);
         }
     }
 
-    // Generate indices for triangle strip
+    // Generate indices (no changes here)
     for (int z = 0; z < height - 1; z++)
     {
         for (int x = 0; x < width - 1; x++)
@@ -85,12 +73,10 @@ void Terrain::generateTerrain()
             int bottomLeft = (z + 1) * width + x;
             int bottomRight = bottomLeft + 1;
 
-            // First triangle
             indices.push_back(topLeft);
             indices.push_back(bottomLeft);
             indices.push_back(topRight);
 
-            // Second triangle
             indices.push_back(topRight);
             indices.push_back(bottomLeft);
             indices.push_back(bottomRight);
@@ -100,8 +86,8 @@ void Terrain::generateTerrain()
     calculateNormals();
 
     cout << "Terrain generated: " << width << "x" << height
-              << " (" << vertices.size() << " vertices, "
-              << indices.size() / 3 << " triangles)" << endl;
+         << " (" << vertices.size() << " vertices, "
+         << indices.size() / 3 << " triangles)" << endl;
 }
 
 void Terrain::calculateNormals()

@@ -39,6 +39,7 @@ public:
     // Set/get position
     void SetPosition(const glm::vec3 &pos);
     glm::vec3 GetPosition() const;
+    float minHeight = 1.0f;
 
     // Animation parameters (can be tweaked)
     float flapSpeed = 10.0f;

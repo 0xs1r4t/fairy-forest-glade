@@ -9,6 +9,7 @@ using namespace std;
 #include "shader_library.h"
 #include "camera.h"
 #include "camera_controller.h"
+#include "lod.h"
 #include "skybox.h"
 #include "terrain.h"
 #include "fairy.h"
@@ -17,6 +18,7 @@ using namespace std;
 #include "texture_generator.h"
 #include "model.h"
 #include "tree_foliage.h"
+#include "tree_manager.h"
 
 #define WIDTH 1920
 #define HEIGHT 1200
@@ -36,6 +38,22 @@ CameraController *g_cameraController = nullptr;
 
 // timing
 float g_deltaTime = 0.0f;
+
+void setupScenePositions(Terrain &terrain, Camera &camera, Fairy &fairy)
+{
+    // Camera starting position
+    float camX = 0.0f, camZ = 15.0f;
+    float camHeight = terrain.getHeight(camX, camZ);
+    camera.Position = glm::vec3(camX, camHeight + 4.0f, camZ);
+
+    // Fairy starting position
+    float fairyX = 0.0f, fairyZ = 8.0f;
+    float fairyHeight = terrain.getHeight(fairyX, fairyZ);
+    fairy.SetPosition(glm::vec3(fairyX, fairyHeight + 2.5f, fairyZ));
+
+    std::cout << "Scene positions set - Camera: y=" << camera.Position.y
+              << ", Fairy: y=" << fairy.GetPosition().y << std::endl;
+}
 
 int main()
 {
@@ -84,21 +102,37 @@ int main()
     glEnable(GL_BLEND);
     glEnable(GL_CULL_FACE);
 
-    // camera + controller setup
-    // -------------------------
-    Camera camera(glm::vec3(0.0f, 5.0f, 10.0f));
-    CameraController cameraController(&camera, SCR_WIDTH, SCR_HEIGHT);
+    // LOD (level-of-detail settings)
+    //-------------------------------
+    LODConfig grassLOD;
+    grassLOD.nearDistance = 15.0f;
+    grassLOD.midDistance = 30.0f;
+    grassLOD.farDistance = 55.0f;
+    grassLOD.nearDensity = 1.0f;
+    grassLOD.midDensity = 0.5f;
+    grassLOD.farDensity = 0.15f;
 
-    g_camera = &camera;
-    g_cameraController = &cameraController;
+    LODConfig flowerLOD;
+    flowerLOD.nearDistance = 25.0f;
+    flowerLOD.midDistance = 45.0f;
+    flowerLOD.farDistance = 80.0f;
+    flowerLOD.nearDensity = 1.0f;
+    flowerLOD.midDensity = 0.5f;
+    flowerLOD.farDensity = 0.2f;
+
+    LODConfig treeLOD;
+    treeLOD.nearDistance = 30.0f; // Full detail trees
+    treeLOD.midDistance = 60.0f;  // Medium detail
+    treeLOD.farDistance = 100.0f; // Far trees
 
     // build and compile our shader program
     // ------------------------------------
     // build and compile shaders
     cout << "Loading shaders..." << endl;
     Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
-    Shader skyboxShader("src/shaders/skybox/skybox.vert", "src/shaders/skybox/skybox.frag");
-    Shader terrainShader("src/shaders/terrain/terrain.vert", "src/shaders/terrain/terrain.frag");
+    // Shader skyboxShader("src/shaders/skybox/skybox.vert", "src/shaders/skybox/skybox.frag");
+    Shader skyShader("src/shaders/skybox/procedural_sky.vert", "src/shaders/skybox/procedural_sky.frag");
+    Shader terrainShader("src/shaders/terrain/terrain.vert", "src/shaders/terrain/terrain.frag", true);
     Shader grassShader("src/shaders/grass/grass.vert", "src/shaders/grass/grass.frag", true);
     Shader flowerShader("src/shaders/flower/flower.vert", "src/shaders/flower/flower.frag");
     Shader leafShader("src/shaders/tree/tree_leaf.vert", "src/shaders/tree/tree_leaf.frag", true);
@@ -108,8 +142,24 @@ int main()
 
     // Create skybox with HDRI
     cout << "Loading skybox..." << endl;
-    Skybox skybox("src/assets/textures/satara_night_no_lamps_4k.exr");
+    Skybox skybox;
+    // Skybox skybox("src/assets/textures/satara_night_no_lamps_4k.exr");
     cout << "Skybox loaded!" << endl;
+
+    // terrain setup
+    // -------------
+    cout << "Generating terrain..." << endl;
+    Terrain terrain(100, 100, 1.0f, 12.0f); // 100x100 grid, 1m spacing, 12m max height
+    cout << "Terrain generated!" << endl;
+
+    // camera + controller setup
+    // -------------------------
+    // start camera at terrain height + offset
+    Camera camera(glm::vec3(0.0f, 5.0f, 10.0f)); // Placeholder position
+    CameraController cameraController(&camera, SCR_WIDTH, SCR_HEIGHT);
+
+    g_camera = &camera;
+    g_cameraController = &cameraController;
 
     // load fairy models, instances and heirarchy
     // ------------------------------------------
@@ -125,23 +175,22 @@ int main()
     fairy.bodyShininess = 1.0f;
     fairy.wingShininess = 1.0f;
 
+    // basic scene positions setup
+    // ---------------------------
+    setupScenePositions(terrain, camera, fairy);
+
     // create fireflies around fairy
     // -----------------------------
     Firefly fireflies(100, fairy.GetPosition(), 5.0f); // 100 fireflies in 5m radius
-
-    // ===== CREATE TERRAIN =====
-    cout << "Generating terrain..." << endl;
-    Terrain terrain(100, 100, 1.0f, 5.0f); // 100x100 grid, 1m spacing, 5m max height
-    cout << "Terrain generated!" << endl;
 
     // ===== CREATE FOLIAGE =====
     cout << "Generating foliage..." << endl;
 
     // grass
-    Foliage grass(&terrain, FoliageType::GRASS, 100000, 0.8f, 0.4f);
+    Foliage grass(&terrain, FoliageType::GRASS, 300000, 0.8f, 0.4f, grassLOD);
 
     // flowers
-    Foliage flowers(&terrain, FoliageType::FLOWER, 5000, 1.2f, 0.6f);
+    Foliage flowers(&terrain, FoliageType::FLOWER, 10000, 1.2f, 0.6f, flowerLOD);
 
     // trees
     // load the tree model
@@ -158,6 +207,10 @@ int main()
                                 "src/assets/textures/Leaves3.PNG",
                                 "src/assets/textures/Leaves4.PNG"});
     thickTree.GenerateLeafClusters(16, 24); // more leaves for thicker tree (denser foliage)
+
+    // tree placements on terrain
+    // --------------------------
+    TreeManager treeManager(&terrain, &normalTree, &thickTree, 50, treeLOD); // 50 trees
 
     cout
         << "Foliage generated!" << endl;
@@ -184,30 +237,6 @@ int main()
         stbi_image_free(grassData);
         std::cout << "Grass texture loaded!" << std::endl;
     }
-
-    // tree placements
-    // ---------------
-    std::vector<glm::vec3> treePositions;
-    std::mt19937 rng(42);
-    std::uniform_real_distribution<float> distX(-40.0f, 40.0f);
-    std::uniform_real_distribution<float> distZ(-40.0f, 40.0f);
-
-    // Generate tree positions on flat areas
-    for (int i = 0; i < 10; i++)
-    {
-        float x = distX(rng);
-        float z = distZ(rng);
-        float y = terrain.getHeight(x, z);
-        glm::vec3 normal = terrain.getNormal(x, z);
-
-        // Only place trees on relatively flat ground
-        if (normal.y > 0.8f && y > -2.0f && y < 3.0f)
-        {
-            treePositions.push_back(glm::vec3(x, y, z));
-        }
-    }
-
-    std::cout << "Placed " << treePositions.size() << " trees on terrain" << std::endl;
 
     // FLOWER TEXTURE (512x512)
     unsigned int flowerTex;
@@ -256,6 +285,21 @@ int main()
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+        // fps counter
+        // -----------
+        static float fpsTimer = 0.0f;
+        static int fpsCounter = 0;
+
+        fpsTimer += g_deltaTime;
+        fpsCounter++;
+
+        if (fpsTimer >= 1.0f)
+        {
+            std::cout << "FPS: " << fpsCounter << std::endl;
+            fpsTimer = 0.0f;
+            fpsCounter = 0;
+        }
+
         // per-frame time logic
         // --------------------
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -277,10 +321,18 @@ int main()
                                                 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
 
+        // ===== ANIMATED MOON =====
+        float moonAngle = currentFrame * 0.05f; // Slow rotation
+        glm::vec3 moonDirection = glm::normalize(glm::vec3(
+            cos(moonAngle) * 0.5f,
+            0.6f + 0.2f * sin(moonAngle * 0.3f), // Gentle up/down
+            sin(moonAngle) * 0.5f));
+
         // ===== LIGHTING SETUP =====
-        // Moonlight - weak directional light from above
-        glm::vec3 lightPos(10.0f, 20.0f, 10.0f);
-        glm::vec3 lightColor(0.7f, 0.8f, 1.0f); // Cool blue moonlight
+        // Moonlight - weak directional light from moon direction
+        // glm::vec3 moonDirection = glm::normalize(glm::vec3(0.3f, 0.7f, 0.5f));
+        glm::vec3 lightPos = -moonDirection * 20.0f; // Light comes from moon
+        glm::vec3 lightColor(0.7f, 0.8f, 1.0f);      // Cool blue moonlight
 
         // Fairy light - warm point light
         glm::vec3 fairyLightPos = fairy.GetPosition() + glm::vec3(0.0f, 1.5f, 0.0f);
@@ -296,7 +348,7 @@ int main()
             (float)SCR_WIDTH / (float)SCR_HEIGHT,
             glm::radians(75.0f),
             0.1f,
-            100.0f);
+            80.0f);
 
         // ===== UPDATE ANIMATIONS =====
         fairy.Update(currentFrame, g_deltaTime);
@@ -353,6 +405,7 @@ int main()
         grassShader.setMat4("projection", projection);
         grassShader.setVec3("cameraPos", camera.Position);
         grassShader.setVec3("lightDir", glm::vec3(0.3f, -0.7f, 0.5f));
+        grassShader.setVec3("ambientColor", glm::vec3(0.15f, 0.2f, 0.25f));
         grassShader.setFloat("time", (float)glfwGetTime());
 
         glActiveTexture(GL_TEXTURE0);
@@ -383,30 +436,10 @@ int main()
         leafShader.use();
         leafShader.setVec3("lightDir", glm::vec3(0.3f, -0.7f, 0.5f));
         leafShader.setVec3("lightColor", lightColor);
-        leafShader.setVec3("ambientColor", glm::vec3(0.2f, 0.25f, 0.3f));
+        leafShader.setVec3("ambientColor", glm::vec3(0.15f, 0.2f, 0.25f));
 
         // multiple trees at different positions on the terrain
-        for (size_t i = 0; i < treePositions.size(); i++)
-        {
-            glm::mat4 treeModel = glm::mat4(1.0f);
-            treeModel = glm::translate(treeModel, treePositions[i]);
-
-            // SCALE UP THE TREES! (2-3x bigger)
-            float scale = 2.5f + (i % 3) * 0.5f; // Vary between 2.5-3.5x
-            treeModel = glm::scale(treeModel, glm::vec3(scale));
-
-            // Random rotation for variety
-            treeModel = glm::rotate(treeModel, glm::radians((float)(i * 37)), glm::vec3(0, 1, 0));
-
-            if (i % 2 == 0)
-            {
-                normalTree.Draw(leafShader, branchShader, treeModel, view, projection, camera.Position);
-            }
-            else
-            {
-                thickTree.Draw(leafShader, branchShader, treeModel, view, projection, camera.Position);
-            }
-        }
+        treeManager.Draw(leafShader, branchShader, view, projection, frustum, camera);
 
         glDisable(GL_BLEND);
 
@@ -416,7 +449,22 @@ int main()
         glEnable(GL_CULL_FACE);
 
         // ===== DRAW SKYBOX (LAST) =====
-        skybox.Draw(skyboxShader, view, projection);
+        // skybox.Draw(skyboxShader, view, projection);
+        skyShader.use();
+
+        // Pass time for twinkling stars
+        skyShader.setFloat("time", currentFrame);
+
+        // Pass moon direction (same as your main light!)
+        skyShader.setVec3("moonDir", moonDirection);
+
+        // Set matrices
+        glm::mat4 skyView = glm::mat4(glm::mat3(view)); // Remove translation
+        skyShader.setMat4("view", skyView);
+        skyShader.setMat4("projection", projection);
+
+        // Draw skybox
+        skybox.Draw(skyShader, skyView, projection);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------

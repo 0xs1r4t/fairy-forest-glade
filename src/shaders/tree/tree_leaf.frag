@@ -30,15 +30,18 @@ void main() {
     vec3 L = normalize(-lightDir);
     float NdotL = dot(N, L) * 0.5 + 0.5;
     
-    // palette set using colour library
-    vec3 shadedColor = celShade4Band(NdotL, DARK_FOREST_GREEN, DEEP_GREEN, MID_GREEN, BRIGHT_GREEN);
+    // OPTION 1: Quantized (hard bands, like ShaderToy)
+    // vec3 shadedColor = celShadeQuantized(NdotL, DARK_FOREST_GREEN, LEAF_LIGHT, 6.0);
     
-    // Alternative - try different greens:
-    // vec3 shadedColor = celShade3Band(NdotL, MID_GREEN, BRIGHT_GREEN, LIME_GREEN);
+    // OPTION 2: Smooth bands (softer transitions)
+    vec3 shadedColor = celShadeSmoothBands(NdotL, DARK_FOREST_GREEN, LEAF_LIGHT, 6.0);
     
-    // Ambient occlusion
-    float aoFactor = smoothstep(-1.0, 1.0, WorldPos.y);
-    shadedColor *= mix(0.6, 1.0, aoFactor);
+    // OPTION 3: Keep explicit 4-band (your original)
+    // vec3 shadedColor = celShade4Band(NdotL, DARK_FOREST_GREEN, LEAF_DARK, LEAF_MID, LEAF_LIGHT);
+    
+    // AO
+    float aoFactor = smoothstep(0.0, 2.0, length(WorldPos));
+    shadedColor *= mix(0.5, 1.0, aoFactor);
     
     FragColor = vec4(shadedColor, alpha);
 }

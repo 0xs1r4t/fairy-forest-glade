@@ -26,22 +26,18 @@ void main() {
     vec3 L = normalize(-lightDir);
     vec3 V = normalize(viewPos - FragPos);
     
-    // Basic lighting
-    float NdotL = dot(N, L) * 0.5 + 0.5; // Half-lambert
-    
-    // Height factor for color variation (0 = base, 1 = top)
+    float NdotL = dot(N, L) * 0.5 + 0.5;
     float height = clamp(FragPos.y * 0.2 + 0.5, 0.0, 1.0);
     
-    vec3 branchColor = getBranchColor(NdotL, height);
+    // Height-based bark colour
+    vec3 baseColor = mix(DARK_BARK, MID_BARK, height);
+    
+    // Use quantized shading (6 bands for wood grain feel)
+    vec3 branchColor = celShadeQuantized(NdotL, baseColor * 0.6, LIGHT_BARK, 6.0);
     
     // Rim lighting for depth
-    float rim = 1.0 - max(dot(V, N), 0.0);
-    rim = pow(rim, 3.0) * 0.3;
+    float rim = pow(1.0 - max(dot(V, N), 0.0), 3.0) * 0.3;
     branchColor += vec3(rim);
-    
-    // Ambient occlusion approximation (darker in crevices)
-    float ao = smoothstep(0.0, 1.0, NdotL);
-    branchColor *= mix(0.6, 1.0, ao);
     
     FragColor = vec4(branchColor, 1.0);
 }

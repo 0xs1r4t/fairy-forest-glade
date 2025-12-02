@@ -4,7 +4,15 @@ using namespace std;
 #include "skybox.h"
 #include "hdri_loader.h"
 
-Skybox::Skybox(const char *hdriPath)
+// Procedural sky constructor (no texture)
+Skybox::Skybox() : hdrTexture(0), width(0), height(0), isProcedural(true)
+{
+    setupSkybox();
+    std::cout << "Procedural skybox created" << std::endl;
+}
+
+// HDRI sky constructor (with texture)
+Skybox::Skybox(const char *hdriPath) : isProcedural(false)
 {
     // Load HDRI texture
     hdrTexture = loadHDR(hdriPath, width, height);
@@ -12,6 +20,10 @@ Skybox::Skybox(const char *hdriPath)
     if (hdrTexture == 0)
     {
         cerr << "Failed to load HDRI for skybox!" << endl;
+    }
+    else
+    {
+        cout << "HDR texture loaded: " << width << "x" << height << endl;
     }
 
     // Setup skybox geometry
@@ -23,7 +35,11 @@ Skybox::~Skybox()
     // Clean up OpenGL resources
     glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &skyboxVBO);
-    glDeleteTextures(1, &hdrTexture);
+
+    if (hdrTexture != 0)
+    {
+        glDeleteTextures(1, &hdrTexture);
+    }
 }
 
 void Skybox::setupSkybox()
@@ -100,10 +116,13 @@ void Skybox::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &projec
     shader.setMat4("view", viewWithoutTranslation);
     shader.setMat4("projection", projection);
 
-    // Bind HDRI texture
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, hdrTexture);
-    shader.setInt("environmentMap", 0);
+    // Only bind texture if using HDRI (not procedural)
+    if (!isProcedural && hdrTexture != 0)
+    {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, hdrTexture);
+        shader.setInt("environmentMap", 0);
+    }
 
     // Draw skybox cube
     glBindVertexArray(skyboxVAO);

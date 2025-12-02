@@ -1,4 +1,5 @@
 #version 330 core
+
 out vec4 FragColor;
 
 in vec3 FragPos;
@@ -10,31 +11,54 @@ uniform vec3 viewPos;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 
+// Get terrain color based on height
+vec3 getTerrainColor(float height) {
+    // Low (valleys) - dark mossy green
+    if (height < 1.5) {
+        return vec3(0.2, 0.3, 0.15);
+    }
+    // Mid-low (plains) - grass
+    else if (height < 4.0) {
+        return GRASS_DARK;
+    }
+    // Mid (gentle hills) - lighter grass
+    else if (height < 7.0) {
+        return GRASS_MID;
+    }
+    // High (hills) - brownish grass
+    else if (height < 10.0) {
+        return vec3(0.45, 0.5, 0.35);
+    }
+    // Peaks - rocky/grey
+    else {
+        return vec3(0.5, 0.5, 0.45);
+    }
+}
+
 void main()
 {
-    // Use vertex color (procedurally generated in terrain.cpp)
-    vec3 baseColor = VertexColor;
-    
-    // Lighting calculations
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(lightPos - FragPos);
-    vec3 viewDir = normalize(viewPos - FragPos);
     
-    // Ambient
-    float ambientStrength = 0.3;
-    vec3 ambient = ambientStrength * baseColor;
+    // Lighting (half-lambert)
+    float NdotL = dot(norm, lightDir) * 0.5 + 0.5;
     
-    // Diffuse
-    float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor * baseColor;
+    // Get base color from height
+    float height = FragPos.y;
+    vec3 baseColor = getTerrainColor(height);
     
-    // Specular (subtle for terrain)
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);  // Low shininess
-    vec3 specular = 0.1 * spec * lightColor;
+    // Apply cel-shading
+    vec3 shadedColor = celShade4Band(
+        NdotL,
+        baseColor * 0.5,  // Deep shadow
+        baseColor * 0.75, // Shadow
+        baseColor,        // Mid
+        baseColor * 1.15  // Highlight
+    );
     
-    // Combine
-    vec3 result = ambient + diffuse + specular;
+    // Darken steep slopes (ambient occlusion)
+    float slope = norm.y; // 1.0 = flat, 0.0 = cliff
+    shadedColor *= mix(0.5, 1.0, slope);
     
-    FragColor = vec4(result, 1.0);
+    FragColor = vec4(shadedColor, 1.0);
 }

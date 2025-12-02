@@ -111,7 +111,7 @@ void TreeFoliage::GenerateLeafClusters(int clustersPerBranch, int leavesPerClust
                                   cos(phi));
 
             // Scale variation
-            leaf.scale = 0.5f + dist01(rng) * 0.3f; // 0.5-0.8 units
+            leaf.scale = 1.0f + dist01(rng) * 0.5f;
             leaf.textureIndex = distTex(rng);
 
             // Custom normal - blend between local sphere normal and cluster normal
