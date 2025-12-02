@@ -6,6 +6,7 @@
 using namespace std;
 
 #include "shader.h"
+#include "shader_library.h"
 #include "camera.h"
 #include "camera_controller.h"
 #include "skybox.h"
@@ -15,6 +16,7 @@ using namespace std;
 #include "foliage.h"
 #include "texture_generator.h"
 #include "model.h"
+#include "tree_foliage.h"
 
 #define WIDTH 1920
 #define HEIGHT 1200
@@ -97,9 +99,10 @@ int main()
     Shader mainShader("src/shaders/main.vert", "src/shaders/main.frag");
     Shader skyboxShader("src/shaders/skybox/skybox.vert", "src/shaders/skybox/skybox.frag");
     Shader terrainShader("src/shaders/terrain/terrain.vert", "src/shaders/terrain/terrain.frag");
-    Shader grassShader("src/shaders/grass/grass.vert", "src/shaders/grass/grass.frag");
+    Shader grassShader("src/shaders/grass/grass.vert", "src/shaders/grass/grass.frag", true);
     Shader flowerShader("src/shaders/flower/flower.vert", "src/shaders/flower/flower.frag");
-    Shader treeShader("src/shaders/tree/tree.vert", "src/shaders/tree/tree.frag");
+    Shader leafShader("src/shaders/tree/tree_leaf.vert", "src/shaders/tree/tree_leaf.frag", true);
+    Shader branchShader("src/shaders/tree/tree_branch.vert", "src/shaders/tree/tree_branch.frag", true);
     Shader fireflyShader("src/shaders/firefly/firefly.vert", "src/shaders/firefly/firefly.frag");
     cout << "Shaders loaded successfully!" << endl;
 
@@ -133,33 +136,78 @@ int main()
 
     // ===== CREATE FOLIAGE =====
     cout << "Generating foliage..." << endl;
-    
+
     // grass
-    Foliage grass(&terrain, FoliageType::GRASS, 50000, 0.8f, 0.4f);
-    
+    Foliage grass(&terrain, FoliageType::GRASS, 100000, 0.8f, 0.4f);
+
     // flowers
     Foliage flowers(&terrain, FoliageType::FLOWER, 5000, 1.2f, 0.6f);
-    
+
     // trees
-    Foliage trees(&terrain, FoliageType::TREE, 200, 6.0f, 3.0f);
-    
-    cout << "Foliage generated!" << endl;
+    // load the tree model
+    TreeFoliage normalTree("src/assets/models/foliage/trees/NormalTreeBranch.obj");
+    normalTree.LoadLeafTextures({"src/assets/textures/Leaves1.PNG",
+                                 "src/assets/textures/Leaves2.PNG",
+                                 "src/assets/textures/Leaves3.PNG",
+                                 "src/assets/textures/Leaves4.PNG"});
+    normalTree.GenerateLeafClusters(12, 20); // 12 clusters, 20 leaves each
+
+    TreeFoliage thickTree("src/assets/models/foliage/trees/ThickTreeBranch.obj");
+    thickTree.LoadLeafTextures({"src/assets/textures/Leaves1.PNG",
+                                "src/assets/textures/Leaves2.PNG",
+                                "src/assets/textures/Leaves3.PNG",
+                                "src/assets/textures/Leaves4.PNG"});
+    thickTree.GenerateLeafClusters(16, 24); // more leaves for thicker tree (denser foliage)
+
+    cout
+        << "Foliage generated!" << endl;
 
     // ===== TEXTURE SETUP (GENERATE PROCEDURAL TEXTURES) =====
     cout << "Generating procedural textures..." << endl;
 
     // GRASS TEXTURE (512x512)
-    unsigned int grassTex;
-    glGenTextures(1, &grassTex);
-    glBindTexture(GL_TEXTURE_2D, grassTex);
+    unsigned int grassTexture;
+    glGenTextures(1, &grassTexture);
+    glBindTexture(GL_TEXTURE_2D, grassTexture);
 
-    vector<unsigned char> grassTexData = TextureGenerator::GenerateGrassTexture(512, 512);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 512, 0, GL_RGBA, GL_UNSIGNED_BYTE, grassTexData.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenerateMipmap(GL_TEXTURE_2D);
+    int gWidth, gHeight, gChannels;
+    unsigned char *grassData = stbi_load("src/assets/textures/Grass.png", &gWidth, &gHeight, &gChannels, 0);
+    if (grassData)
+    {
+        GLenum format = (gChannels == 4) ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, format, gWidth, gHeight, 0, format, GL_UNSIGNED_BYTE, grassData);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        stbi_image_free(grassData);
+        std::cout << "Grass texture loaded!" << std::endl;
+    }
+
+    // tree placements
+    // ---------------
+    std::vector<glm::vec3> treePositions;
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> distX(-40.0f, 40.0f);
+    std::uniform_real_distribution<float> distZ(-40.0f, 40.0f);
+
+    // Generate tree positions on flat areas
+    for (int i = 0; i < 10; i++)
+    {
+        float x = distX(rng);
+        float z = distZ(rng);
+        float y = terrain.getHeight(x, z);
+        glm::vec3 normal = terrain.getNormal(x, z);
+
+        // Only place trees on relatively flat ground
+        if (normal.y > 0.8f && y > -2.0f && y < 3.0f)
+        {
+            treePositions.push_back(glm::vec3(x, y, z));
+        }
+    }
+
+    std::cout << "Placed " << treePositions.size() << " trees on terrain" << std::endl;
 
     // FLOWER TEXTURE (512x512)
     unsigned int flowerTex;
@@ -174,19 +222,6 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    // TREE TEXTURE (1024x1024 - bigger for more detail)
-    unsigned int treeTex;
-    glGenTextures(1, &treeTex);
-    glBindTexture(GL_TEXTURE_2D, treeTex);
-
-    vector<unsigned char> treeTexData = TextureGenerator::GenerateTreeTexture(1024, 1024);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_BYTE, treeTexData.data());
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
     cout << "Textures generated successfully!" << endl;
 
     // draw in wireframe
@@ -194,22 +229,26 @@ int main()
 
     // camera controls info
     // --------------------
-    cout << "\n\n=== CONTROLS ===\n" << endl;
+    cout << "\n\n=== CONTROLS ===\n"
+         << endl;
     cout << "Camera Controls (Left Hand):" << endl;
     cout << "  WASD: Move camera" << endl;
     cout << "  Mouse: Look around" << endl;
-    cout << "  Scroll: Zoom in/out\n" << endl;
+    cout << "  Scroll: Zoom in/out\n"
+         << endl;
 
     cout << "Fairy Controls (Right Hand):" << endl;
     cout << "  Arrow Keys: Move fairy (forward/back/left/right)" << endl;
     cout << "  I/K: Fly up/down" << endl;
-    cout << "  J/L: Rotate left/right\n" << endl;
+    cout << "  J/L: Rotate left/right\n"
+         << endl;
 
     cout << "ESC: Exit" << endl;
-    cout << "===================\n" << endl;
+    cout << "===================\n"
+         << endl;
 
     cout << "\nStarting render loop..." << endl;
-    
+
     // timing
     float lastFrame = 0.0f;
 
@@ -242,11 +281,11 @@ int main()
         // Moonlight - weak directional light from above
         glm::vec3 lightPos(10.0f, 20.0f, 10.0f);
         glm::vec3 lightColor(0.7f, 0.8f, 1.0f); // Cool blue moonlight
-        
+
         // Fairy light - warm point light
         glm::vec3 fairyLightPos = fairy.GetPosition() + glm::vec3(0.0f, 1.5f, 0.0f);
         glm::vec3 fairyLightColor(1.0f, 0.9f, 0.6f); // Warm yellow glow
-        
+
         // Get firefly positions and colors for lighting
         auto fireflyPositions = fireflies.GetPositions();
         auto fireflyColors = fireflies.GetColors();
@@ -281,10 +320,11 @@ int main()
         mainShader.setVec3("lightColor", lightColor);
         mainShader.setVec3("fairyLightPos", fairyLightPos);
         mainShader.setVec3("fairyLightColor", fairyLightColor);
-        
+
         // Pass firefly lights (up to 8 closest ones)
         mainShader.setInt("numFireflies", numFireflyLights);
-        for (int i = 0; i < numFireflyLights; i++) {
+        for (int i = 0; i < numFireflyLights; i++)
+        {
             string posName = "fireflyPositions[" + to_string(i) + "]";
             string colorName = "fireflyColors[" + to_string(i) + "]";
             mainShader.setVec3(posName, fireflyPositions[i]);
@@ -311,13 +351,12 @@ int main()
         grassShader.use();
         grassShader.setMat4("view", view);
         grassShader.setMat4("projection", projection);
-        grassShader.setVec3("fairyPos", fairy.GetPosition());
-        grassShader.setFloat("fairyRadius", 3.0f);
-        grassShader.setVec3("lightPos", lightPos);
-        grassShader.setVec3("viewPos", camera.Position);
+        grassShader.setVec3("cameraPos", camera.Position);
+        grassShader.setVec3("lightDir", glm::vec3(0.3f, -0.7f, 0.5f));
+        grassShader.setFloat("time", (float)glfwGetTime());
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, grassTex);
+        glBindTexture(GL_TEXTURE_2D, grassTexture);
         grassShader.setInt("grassTexture", 0);
 
         grass.Draw(grassShader, view, projection, frustum, camera);
@@ -338,22 +377,38 @@ int main()
         flowers.Draw(flowerShader, view, projection, frustum, camera);
 
         // ===== DRAW TREES =====
-        treeShader.use();
-        treeShader.setMat4("view", view);
-        treeShader.setMat4("projection", projection);
-        treeShader.setVec3("fairyPos", fairy.GetPosition());
-        treeShader.setFloat("fairyRadius", 5.0f); // Larger radius (though trees don't scale)
-        treeShader.setVec3("lightPos", lightPos);
-        treeShader.setVec3("viewPos", camera.Position);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, treeTex);
-        treeShader.setInt("treeTexture", 0);
+        leafShader.use();
+        leafShader.setVec3("lightDir", glm::vec3(0.3f, -0.7f, 0.5f));
+        leafShader.setVec3("lightColor", lightColor);
+        leafShader.setVec3("ambientColor", glm::vec3(0.2f, 0.25f, 0.3f));
 
-        trees.Draw(treeShader, view, projection, frustum, camera);
+        // multiple trees at different positions on the terrain
+        for (size_t i = 0; i < treePositions.size(); i++)
+        {
+            glm::mat4 treeModel = glm::mat4(1.0f);
+            treeModel = glm::translate(treeModel, treePositions[i]);
 
-        // enable backface culling for everything else
-        // glEnable(GL_CULL_FACE);
+            // SCALE UP THE TREES! (2-3x bigger)
+            float scale = 2.5f + (i % 3) * 0.5f; // Vary between 2.5-3.5x
+            treeModel = glm::scale(treeModel, glm::vec3(scale));
+
+            // Random rotation for variety
+            treeModel = glm::rotate(treeModel, glm::radians((float)(i * 37)), glm::vec3(0, 1, 0));
+
+            if (i % 2 == 0)
+            {
+                normalTree.Draw(leafShader, branchShader, treeModel, view, projection, camera.Position);
+            }
+            else
+            {
+                thickTree.Draw(leafShader, branchShader, treeModel, view, projection, camera.Position);
+            }
+        }
+
+        glDisable(GL_BLEND);
 
         // ===== DRAW FIREFLIES =====
         glDisable(GL_CULL_FACE);

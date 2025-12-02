@@ -11,6 +11,8 @@
 #include <iostream>
 using namespace std;
 
+#include "shader_library.h"
+
 class Shader
 {
 public:
@@ -71,6 +73,46 @@ public:
         glDeleteShader(vertex);
         glDeleteShader(fragment);
     }
+
+    // constructor overload
+    Shader(const char *vertexPath, const char *fragmentPath, bool useLibrary)
+    {
+        if (useLibrary)
+        {
+            std::string vertexCode = ShaderLibrary::LoadShaderWithLibrary(vertexPath);
+            std::string fragmentCode = ShaderLibrary::LoadShaderWithLibrary(fragmentPath);
+
+            const char *vShaderCode = vertexCode.c_str();
+            const char *fShaderCode = fragmentCode.c_str();
+
+            // Compile shaders (same as before)
+            unsigned int vertex, fragment;
+            vertex = glCreateShader(GL_VERTEX_SHADER);
+            glShaderSource(vertex, 1, &vShaderCode, NULL);
+            glCompileShader(vertex);
+            checkCompileErrors(vertex, "VERTEX");
+
+            fragment = glCreateShader(GL_FRAGMENT_SHADER);
+            glShaderSource(fragment, 1, &fShaderCode, NULL);
+            glCompileShader(fragment);
+            checkCompileErrors(fragment, "FRAGMENT");
+
+            ID = glCreateProgram();
+            glAttachShader(ID, vertex);
+            glAttachShader(ID, fragment);
+            glLinkProgram(ID);
+            checkCompileErrors(ID, "PROGRAM");
+
+            glDeleteShader(vertex);
+            glDeleteShader(fragment);
+        }
+        else
+        {
+            // Use existing constructor logic
+            *this = Shader(vertexPath, fragmentPath);
+        }
+    }
+
     // activate the shader
     // ------------------------------------------------------------------------
     void use() const
@@ -150,7 +192,7 @@ private:
             {
                 glGetShaderInfoLog(shader, 1024, NULL, infoLog);
                 cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"
-                          << infoLog << "\n -- --------------------------------------------------- -- " << endl;
+                     << infoLog << "\n -- --------------------------------------------------- -- " << endl;
             }
         }
         else
@@ -160,7 +202,7 @@ private:
             {
                 glGetProgramInfoLog(shader, 1024, NULL, infoLog);
                 cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n"
-                          << infoLog << "\n -- --------------------------------------------------- -- " << endl;
+                     << infoLog << "\n -- --------------------------------------------------- -- " << endl;
             }
         }
     }

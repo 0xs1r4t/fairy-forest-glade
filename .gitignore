@@ -1,2 +1,7 @@
+# unnecessary or heavy directories
 /build/
 /src/assets
+
+# additional text files
+files.txt
+transcript.txt

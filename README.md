@@ -27,3 +27,9 @@ dir_print . --omit assets --export files.txt
 cd build
 cmake --build . --config Release --clean-first
 ```
+
+## print directory contents
+
+```pwsh
+dir_print
+```

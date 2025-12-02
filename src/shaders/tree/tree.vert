@@ -2,45 +2,68 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoords;
-layout (location = 3) in vec3 instanceOffset;
+layout (location = 3) in vec3 aTangent;   // For normal mapping
 
+uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-uniform vec3 fairyPos;
-uniform float fairyRadius;
+
+uniform float time;
+uniform float animationPhase;
+uniform bool leafBillboarding;
 uniform vec3 viewPos;
 
-out vec2 TexCoords;
-out vec3 Normal;
 out vec3 FragPos;
+out vec3 Normal;
+out vec2 TexCoords;
+out mat3 TBN;
+
+// Simple wind animation for leaves
+vec3 applyWindAnimation(vec3 pos, vec3 normal) {
+    // Only affect vertices high up (leaves, not trunk)
+    float heightFactor = smoothstep(0.0, 5.0, pos.y);
+    
+    // Gentle swaying
+    float wind = sin(time * 2.0 + animationPhase + pos.x * 0.5) * 0.1;
+    wind += sin(time * 3.0 + animationPhase + pos.z * 0.3) * 0.05;
+    
+    pos.x += wind * heightFactor;
+    pos.z += wind * 0.5 * heightFactor;
+    
+    // Leaf flutter
+    float flutter = sin(time * 8.0 + animationPhase) * 0.02;
+    pos.y += flutter * heightFactor * heightFactor; // Only tips flutter
+    
+    return pos;
+}
 
 void main() {
-    // Get camera right and up vectors from view matrix
-    vec3 cameraRight = vec3(view[0][0], view[1][0], view[2][0]);
-    vec3 cameraUp = vec3(0.0, 1.0, 0.0); // Keep upright (cylindrical billboard)
+    vec4 worldPos = model * vec4(aPos, 1.0);
     
-    // For perfect spherical billboarding (faces camera even when looking down):
-    // vec3 cameraUp = vec3(view[0][1], view[1][1], view[2][1]);
+    // Apply wind animation
+    worldPos.xyz = applyWindAnimation(worldPos.xyz, aNormal);
     
-    // Flora interaction - scale up near fairy
-    float dist = length(vec2(fairyPos.x - instanceOffset.x, fairyPos.z - instanceOffset.z));
-    float influence = smoothstep(fairyRadius, 0.0, dist);
-    float extraScale = 1.0 + influence * 0.3;
-    
-    // Reconstruct vertex position to face camera
-    // aPos.x and aPos.z determine offset from center
-    // aPos.y is the height
-    vec3 billboardPos = instanceOffset + 
-                        cameraRight * aPos.x + 
-                        cameraUp * aPos.y * extraScale; // Apply scaling to height
-    
-    FragPos = billboardPos;
+    FragPos = worldPos.xyz;
     TexCoords = aTexCoords;
     
-    // Normal faces camera
-    vec3 toCamera = viewPos - instanceOffset;
-    toCamera.y = 0.0; // Cylindrical
-    Normal = normalize(toCamera);
+    // Normal mapping setup (TBN matrix)
+    vec3 T = normalize(vec3(model * vec4(aTangent, 0.0)));
+    vec3 N = normalize(vec3(model * vec4(aNormal, 0.0)));
     
-    gl_Position = projection * view * vec4(FragPos, 1.0);
+    // Re-orthogonalize T with respect to N
+    T = normalize(T - dot(T, N) * N);
+    vec3 B = cross(N, T);
+    
+    TBN = mat3(T, B, N);
+    Normal = N;
+    
+    // Leaf billboarding (optional - for flat leaf planes)
+    if (leafBillboarding) {
+        // Make leaves face camera
+        vec3 toCamera = normalize(viewPos - FragPos);
+        toCamera.y *= 0.3; // Reduce vertical tilt
+        Normal = normalize(toCamera);
+    }
+    
+    gl_Position = projection * view * worldPos;
 }
