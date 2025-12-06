@@ -6,14 +6,14 @@ in vec3 Normal;
 in vec2 TexCoords;
 
 uniform vec3 viewPos;
-uniform vec3 lightPos;          // Main moonlight
+uniform vec3 lightPos;
 uniform vec3 lightColor;
-uniform vec3 fairyLightPos;     // Fairy glow
+uniform vec3 fairyLightPos;
 uniform vec3 fairyLightColor;
 uniform vec3 materialColor;
 uniform float materialShininess;
 
-// Firefly lights (we'll pass the closest ones)
+// Firefly lights
 uniform vec3 fireflyPositions[8];
 uniform vec3 fireflyColors[8];
 uniform int numFireflies;
@@ -30,52 +30,60 @@ vec2 SampleSphericalMap(vec3 v) {
     return uv;
 }
 
+// Ambient occlusion
+float calculateAO(vec3 normal, vec3 viewDir) {
+    float ao = dot(normal, viewDir);
+    ao = ao * 0.5 + 0.5;
+    ao = pow(ao, 0.5);
+    return mix(0.4, 1.0, ao);
+}
+
 void main() {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
     
-    // Very dark environment for night
-    vec3 envColor = texture(environmentMap, SampleSphericalMap(norm)).rgb;
-    vec3 envAmbient = 0.05 * envColor; // Much darker!
+    float ao = calculateAO(norm, viewDir);
     
-    vec3 result = envAmbient * materialColor;
+    // Start almost black
+    vec3 result = vec3(0.0);
     
-    // MOONLIGHT (weak directional light)
-    {
-        vec3 lightDir = normalize(lightPos - FragPos);
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * lightColor * 0.15; // Very weak moonlight
-        
-        result += diffuse * materialColor;
-    }
-
-    // FAIRY LIGHT (point light)
-    {
-        vec3 fairyDir = normalize(fairyLightPos - FragPos);
-        float distance = length(fairyLightPos - FragPos);
-        float attenuation = 1.0 / (1.0 + 0.05 * distance + 0.01 * distance * distance);
-        
-        float diff = max(dot(norm, fairyDir), 0.0);
-        vec3 diffuse = diff * fairyLightColor * attenuation * 1.5; // Brighter fairy glow
-        
-        result += diffuse * materialColor;
-    }
+    // ===== MOONLIGHT - BARELY THERE =====
+    vec3 moonDir = normalize(lightPos);
+    float moonDiff = max(dot(norm, moonDir), 0.0);
     
-    // FIREFLY LIGHTS (multiple small point lights)
+    // CUT TO 0.08
+    vec3 moonDiffuse = moonDiff * lightColor * 0.08 * ao;
+    
+    // CUT rim to 0.04
+    float rimLight = pow(1.0 - max(dot(viewDir, norm), 0.0), 3.0);
+    rimLight *= max(dot(norm, moonDir), 0.0);
+    vec3 moonRim = rimLight * lightColor * 0.04;
+    
+    result += (moonDiffuse + moonRim) * materialColor;
+    
+    // ===== FIREFLY LIGHTS - SUBTLE =====
     for (int i = 0; i < numFireflies; i++) {
         vec3 fireflyDir = normalize(fireflyPositions[i] - FragPos);
         float distance = length(fireflyPositions[i] - FragPos);
         
-        // Fireflies have very short range
-        if (distance < 3.0) {
-            float attenuation = 1.0 / (1.0 + 0.5 * distance + 0.3 * distance * distance);
+        if (distance < 4.0) { // REDUCED range from 5.0
+            // Stronger falloff
+            float attenuation = 1.0 / (1.0 + 0.7 * distance + 0.5 * distance * distance);
             
             float diff = max(dot(norm, fireflyDir), 0.0);
-            vec3 diffuse = diff * fireflyColors[i] * attenuation * 0.2; // REDUCED from 0.5 to 0.2
+            // CUT TO 0.35
+            vec3 diffuse = diff * fireflyColors[i] * attenuation * 0.35;
             
-            result += diffuse * materialColor;
+            // CUT TO 0.12
+            vec3 ambientFirefly = fireflyColors[i] * attenuation * 0.12;
+            
+            result += (diffuse + ambientFirefly) * materialColor;
         }
     }
+    
+    // Tone mapping
+    result = result / (result + vec3(1.0));
+    result = pow(result, vec3(1.0/2.2));
     
     FragColor = vec4(result, 1.0);
 }

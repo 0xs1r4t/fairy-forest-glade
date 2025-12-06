@@ -12,7 +12,6 @@ Foliage::Foliage(Terrain *terrain, FoliageType type, int count, float height, fl
                  const LODConfig &lodConfig)
     : terrain(terrain), type(type), count(count), height(height), width(width), lodConfig(lodConfig)
 {
-
     string typeName;
     switch (type)
     {
@@ -35,6 +34,25 @@ Foliage::Foliage(Terrain *terrain, FoliageType type, int count, float height, fl
     // Generate positions on terrain
     generatePositions();
 
+    // For flowers, assign random texture indices
+    if (type == FoliageType::FLOWER)
+    {
+        textureIndices.resize(positions.size());
+        visibleTextureIndices.reserve(positions.size() / 2);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+        for (size_t i = 0; i < positions.size(); i++)
+        {
+            // 50/50 split between two flower types
+            textureIndices[i] = (dist(gen) < 0.5f) ? 0.0f : 1.0f;
+        }
+
+        cout << "  Assigned random flower types" << endl;
+    }
+
     cout << "Placed " << positions.size() << " " << typeName << " instances" << endl;
 
     // Setup cross-quad geometry
@@ -47,6 +65,19 @@ Foliage::Foliage(Terrain *terrain, FoliageType type, int count, float height, fl
     glEnableVertexAttribArray(3);
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void *)0);
     glVertexAttribDivisor(3, 1);
+
+    // Setup texture index buffer (flowers only)
+    if (type == FoliageType::FLOWER)
+    {
+        glGenBuffers(1, &textureIndexVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, textureIndexVBO);
+        glBufferData(GL_ARRAY_BUFFER, textureIndices.size() * sizeof(float),
+                     textureIndices.data(), GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(float), (void *)0);
+        glVertexAttribDivisor(4, 1);
+    }
+
     glBindVertexArray(0);
 }
 
@@ -56,11 +87,15 @@ Foliage::~Foliage()
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
     glDeleteBuffers(1, &instanceVBO);
+
+    if (type == FoliageType::FLOWER)
+    {
+        glDeleteBuffers(1, &textureIndexVBO);
+    }
 }
 
 void Foliage::generatePositions()
 {
-    // Use different seed offsets for different foliage types
     static unsigned int seedOffset = 0;
     srand(static_cast<unsigned int>(time(0)) + seedOffset++);
 
@@ -69,20 +104,25 @@ void Foliage::generatePositions()
     {
         float x = (float(rand()) / RAND_MAX) * terrain->width * terrain->scale - (terrain->width * terrain->scale / 2.0f);
         float z = (float(rand()) / RAND_MAX) * terrain->height * terrain->scale - (terrain->height * terrain->scale / 2.0f);
+
         float y = terrain->getHeight(x, z);
         glm::vec3 normal = terrain->getNormal(x, z);
 
         bool validPlacement = false;
+
         switch (type)
         {
         case FoliageType::GRASS:
-            // Grass grows almost anywhere flat
-            validPlacement = (normal.y > 0.5f && y > -3.0f); // <- CHANGED (removed upper limit)
+            // Grass grows almost anywhere on terrain with reasonable slope
+            validPlacement = (normal.y > 0.5f && y > -999.0f); // Almost no height restriction
             break;
 
         case FoliageType::FLOWER:
-            // Flowers prefer flatter, mid-elevation areas
-            validPlacement = (normal.y > 0.7f && y > 0.0f && y < 7.0f); // <- CHANGED (was -4 to 3)
+            // Flowers prefer flatter areas - VERY permissive on height
+            // validPlacement = (normal.y > 0.65f &&             // Slightly more lenient on slope too
+            //                   y > -terrainHeightScale &&      // Accept even valleys
+            //                   y < terrainHeightScale * 1.2f); // Accept peaks too
+            validPlacement = (normal.y > 0.6f);
             break;
         }
 
@@ -151,8 +191,16 @@ void Foliage::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &proje
 {
     visiblePositions.clear();
 
-    for (const auto &pos : positions)
+    // Clear visible texture indices for flowers
+    if (type == FoliageType::FLOWER)
     {
+        visibleTextureIndices.clear();
+    }
+
+    for (size_t idx = 0; idx < positions.size(); idx++)
+    {
+        const auto &pos = positions[idx];
+
         // Frustum culling
         if (!camera.IsSphereInFrustum(frustum, pos, boundingRadius))
         {
@@ -201,6 +249,12 @@ void Foliage::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &proje
         if (random < densityThreshold)
         {
             visiblePositions.push_back(pos);
+
+            // Track texture index for visible flowers
+            if (type == FoliageType::FLOWER)
+            {
+                visibleTextureIndices.push_back(textureIndices[idx]);
+            }
         }
     }
 
@@ -216,10 +270,18 @@ void Foliage::Draw(Shader &shader, const glm::mat4 &view, const glm::mat4 &proje
     if (visiblePositions.empty())
         return;
 
-    // Update instance buffer
+    // Update instance position buffer
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, visiblePositions.size() * sizeof(glm::vec3),
                  visiblePositions.data(), GL_DYNAMIC_DRAW);
+
+    // Update texture index buffer (flowers only)
+    if (type == FoliageType::FLOWER)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, textureIndexVBO);
+        glBufferData(GL_ARRAY_BUFFER, visibleTextureIndices.size() * sizeof(float),
+                     visibleTextureIndices.data(), GL_DYNAMIC_DRAW);
+    }
 
     glBindVertexArray(VAO);
     glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0,

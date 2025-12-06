@@ -2,6 +2,7 @@
 in vec2 TexCoord;
 in vec3 CustomNormal;
 in vec3 WorldPos;
+in float WindInfluence;
 flat in int TexIndex;
 
 out vec4 FragColor;
@@ -30,14 +31,17 @@ void main() {
     vec3 L = normalize(-lightDir);
     float NdotL = dot(N, L) * 0.5 + 0.5;
     
-    // OPTION 1: Quantized (hard bands, like ShaderToy)
-    // vec3 shadedColor = celShadeQuantized(NdotL, DARK_FOREST_GREEN, LEAF_LIGHT, 6.0);
+    // Cel-shaded color (function from NPR library)
+    vec3 shadedColor = celShadeSmoothBands(NdotL, DARK_FOREST_GREEN, LEAF_MID, 6.0);
     
-    // OPTION 2: Smooth bands (softer transitions)
-    vec3 shadedColor = celShadeSmoothBands(NdotL, DARK_FOREST_GREEN, LEAF_LIGHT, 6.0);
+    // ===== WIND SHIMMER EFFECT =====
+    // Subtle brightness variation from wind (leaves catching light)
+    float windShimmer = WindInfluence * 0.1;
+    shadedColor += vec3(windShimmer * 0.05, windShimmer * 0.08, windShimmer * 0.05);
     
-    // OPTION 3: Keep explicit 4-band (your original)
-    // vec3 shadedColor = celShade4Band(NdotL, DARK_FOREST_GREEN, LEAF_DARK, LEAF_MID, LEAF_LIGHT);
+    // Slight color shift when wind is strong (more yellow-green)
+    vec3 windTint = vec3(0.1, 0.15, 0.05) * WindInfluence * 0.15;
+    shadedColor = mix(shadedColor, shadedColor + windTint, WindInfluence * 0.3);
     
     // AO
     float aoFactor = smoothstep(0.0, 2.0, length(WorldPos));

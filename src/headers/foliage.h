@@ -43,12 +43,17 @@ private:
     LODConfig lodConfig;
     unsigned int VAO, VBO, EBO;
     unsigned int instanceVBO;
+    unsigned int textureIndexVBO;
+
     int count;
     float height;
     float width;
     float boundingRadius;
+    float terrainHeightScale; // store max terrain height for placement
 
     vector<glm::vec3> visiblePositions;
+    std::vector<float> textureIndices;
+    std::vector<float> visibleTextureIndices;
 
     // Setup methods
     void generatePositions();

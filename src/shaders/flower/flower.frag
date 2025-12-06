@@ -4,31 +4,33 @@ out vec4 FragColor;
 in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
+flat in int TexIndex;
+in float HeightFactor; // NEW
+in float WindInfluence; // NEW
 
-uniform sampler2D flowerTexture;
-uniform vec3 lightPos;
-uniform vec3 viewPos;
+uniform sampler2D flowerTexture0; // Flower1.png
+uniform sampler2D flowerTexture1; // Flower2.png
 
 void main() {
-    vec4 texColor = texture(flowerTexture, TexCoords);
+    // Sample correct texture based on index
+    vec4 texColor;
+    if (TexIndex == 0) {
+        texColor = texture(flowerTexture0, TexCoords);
+    } else {
+        texColor = texture(flowerTexture1, TexCoords);
+    }
     
-    // Alpha cutout
-    if (texColor.a < 0.1) {
+    // Discard fully transparent pixels
+    if (texColor.a < 0.01) {
         discard;
     }
     
-    // Simple lighting - flowers are brighter
-    vec3 norm = normalize(Normal);
-    vec3 lightDir = normalize(lightPos - FragPos);
+    // ===== WIND EFFECTS =====
+    // Subtle brightness variation from wind
+    float windShimmer = WindInfluence * HeightFactor * 0.1; // Subtle
     
-    // Higher ambient for flowers (they're more vibrant)
-    float ambient = 0.5;
+    // Apply shimmer to flower colors
+    vec3 finalColor = texColor.rgb * (1.0 + windShimmer);
     
-    // Diffuse
-    float diff = max(dot(norm, lightDir), 0.0);
-    
-    // Combine
-    vec3 result = (ambient + diff) * texColor.rgb;
-    
-    FragColor = vec4(result, texColor.a);
+    FragColor = vec4(finalColor, texColor.a);
 }

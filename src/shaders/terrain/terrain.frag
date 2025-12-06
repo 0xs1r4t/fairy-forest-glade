@@ -50,11 +50,12 @@ void main()
     // Apply cel-shading
     vec3 shadedColor = celShade4Band(
         NdotL,
-        baseColor * 0.5,  // Deep shadow
-        baseColor * 0.75, // Shadow
-        baseColor,        // Mid
-        baseColor * 1.15  // Highlight
+        baseColor * 0.4,  // Deep shadow - darker
+        baseColor * 0.65, // Shadow - darker
+        baseColor * 0.85, // Mid - reduced from 1.0
+        baseColor * 1.0   // Highlight - NO BOOST (was 1.15)
     );
+
     
     // Darken steep slopes (ambient occlusion)
     float slope = norm.y; // 1.0 = flat, 0.0 = cliff

@@ -34,17 +34,17 @@ void Terrain::generateTerrain()
             float zPos = z * scale;
 
             // INCREASED frequency for more varied terrain
-            glm::vec2 samplePos = glm::vec2(x, z) * frequency * 1.5f; // <- CHANGED (added *1.5)
+            glm::vec2 samplePos = glm::vec2(x, z) * frequency * 1.5f;
             float heightValue = Noise::warpedFBM(samplePos, octaves);
 
             // More pronounced ridges
             float ridges = Noise::ridgedNoise(samplePos * 0.5f, 4);
-            heightValue = glm::mix(heightValue, ridges, 0.4f); // <- CHANGED (was 0.3)
+            heightValue = glm::mix(heightValue, ridges, 0.4f);
 
             // Add valleys (dip low areas)
             if (heightValue < 0.3f)
             {
-                heightValue *= 0.6f; // <- NEW: Deepen valleys
+                heightValue *= 0.6f;
             }
 
             float yPos = heightValue * heightScale;
@@ -55,9 +55,36 @@ void Terrain::generateTerrain()
             vertex.position = glm::vec3(xPos - (width * scale) / 2.0f, yPos, zPos - (height * scale) / 2.0f);
             vertex.texCoords = glm::vec2((float)x / width, (float)z / height);
 
-            // REMOVE old color code - cel-shader will handle this
-            // Just set a placeholder
-            vertex.colour = glm::vec3(0.3f, 0.5f, 0.3f);
+            // ===== colour BASED ON HEIGHT (DESATURATED) =====
+            glm::vec3 colour;
+
+            if (yPos < heightScale * 0.2f)
+            {
+                // Dark valleys - brownish-green
+                colour = glm::vec3(0.20f, 0.25f, 0.18f);
+            }
+            else if (yPos < heightScale * 0.4f)
+            {
+                // Lower slopes - muted dark green
+                colour = glm::vec3(0.25f, 0.35f, 0.22f);
+            }
+            else if (yPos < heightScale * 0.6f)
+            {
+                // Mid slopes - balanced green (not too bright)
+                colour = glm::vec3(0.30f, 0.42f, 0.28f);
+            }
+            else if (yPos < heightScale * 0.8f)
+            {
+                // Upper slopes - grayish-green
+                colour = glm::vec3(0.35f, 0.40f, 0.32f);
+            }
+            else
+            {
+                // Peaks - rocky gray
+                colour = glm::vec3(0.42f, 0.43f, 0.40f);
+            }
+
+            vertex.colour = colour;
 
             vertices.push_back(vertex);
         }

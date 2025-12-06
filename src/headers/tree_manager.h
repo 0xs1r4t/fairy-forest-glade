@@ -23,7 +23,8 @@ class TreeManager
 {
 public:
     TreeManager(Terrain *terrain, TreeFoliage *normalType, TreeFoliage *thickType,
-                int count, const LODConfig &lodConfig = LODConfig());
+                int count, const LODConfig &lodConfig,
+                glm::vec3 exclusionCenter, float exclusionRadius);
 
     void Draw(Shader &leafShader, Shader &branchShader,
               const glm::mat4 &view, const glm::mat4 &projection,
@@ -40,5 +41,5 @@ private:
     vector<TreeInstance> trees;
     int visibleCount;
 
-    void generateTreePositions(int count);
+    void generateTreePositions(int count, glm::vec3 exclusionCenter, float exclusionRadius);
 };

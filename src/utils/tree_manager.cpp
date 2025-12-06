@@ -4,40 +4,51 @@ using namespace std;
 #include "tree_manager.h"
 
 TreeManager::TreeManager(Terrain *terrain, TreeFoliage *normalType, TreeFoliage *thickType,
-                         int count, const LODConfig &lodConfig)
+                         int count, const LODConfig &lodConfig,
+                         glm::vec3 exclusionCenter, float exclusionRadius)
     : terrain(terrain), normalTree(normalType), thickTree(thickType),
       lodConfig(lodConfig), visibleCount(0)
 {
-    std::cout << "Generating tree positions..." << std::endl;
-    generateTreePositions(count);
-    std::cout << "Placed " << trees.size() << " trees on terrain" << std::endl;
+    generateTreePositions(count, exclusionCenter, exclusionRadius);
 }
 
-void TreeManager::generateTreePositions(int desiredCount)
+// UPDATED SIGNATURE - now accepts 3 parameters
+void TreeManager::generateTreePositions(int desiredCount, glm::vec3 exclusionCenter, float exclusionRadius)
 {
-    mt19937 rng(42);
-    uniform_real_distribution<float> distX(-50.0f, 50.0f);
-    uniform_real_distribution<float> distZ(-50.0f, 50.0f);
-    uniform_real_distribution<float> distScale(2.0f, 4.0f);
-    uniform_real_distribution<float> distRot(0.0f, 360.0f);
-    uniform_real_distribution<float> distType(0.0f, 1.0f);
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> distX(-50.0f, 50.0f);
+    std::uniform_real_distribution<float> distZ(-50.0f, 50.0f);
+    std::uniform_real_distribution<float> distScale(2.0f, 4.0f);
+    std::uniform_real_distribution<float> distRot(0.0f, 360.0f);
+    std::uniform_real_distribution<float> distType(0.0f, 1.0f);
 
     int attempts = desiredCount * 3;
+    float terrainHeightScale = terrain->heightScale;
 
-    for (int i = 0; i < attempts && trees.size() < desiredCount; i++)
+    for (int i = 0; i < attempts && static_cast<int>(trees.size()) < desiredCount; i++)
     {
         float x = distX(rng);
         float z = distZ(rng);
         float y = terrain->getHeight(x, z);
         glm::vec3 normal = terrain->getNormal(x, z);
 
-        // Tree placement rules
-        if (normal.y > 0.85f && y > -1.0f && y < 8.0f)
+        // Check terrain suitability - RELAXED from 0.85 to 0.7
+        if (normal.y > 0.7f && // Trees can handle moderate slopes now
+            y > -terrainHeightScale * 0.2f &&
+            y < terrainHeightScale * 0.8f)
         {
-            // Check spacing
+
+            // Check if too close to exclusion zone
+            float distToExclusion = glm::distance(
+                glm::vec2(x, z),
+                glm::vec2(exclusionCenter.x, exclusionCenter.z));
+
+            if (distToExclusion < exclusionRadius)
+                continue;
+
+            // Check spacing from other trees
             bool tooClose = false;
             float minSpacing = 4.0f;
-
             for (const auto &existing : trees)
             {
                 float dist = glm::distance(glm::vec2(x, z),
@@ -55,9 +66,8 @@ void TreeManager::generateTreePositions(int desiredCount)
                 tree.position = glm::vec3(x, y, z);
                 tree.scale = distScale(rng);
                 tree.rotation = distRot(rng);
-                tree.useThickType = distType(rng) > 0.5f;
-                tree.boundingRadius = tree.scale * 3.0f; // Approximate tree size
-
+                tree.useThickType = distType(rng) < 0.5f;
+                tree.boundingRadius = tree.scale * 3.0f;
                 trees.push_back(tree);
             }
         }
@@ -96,10 +106,6 @@ void TreeManager::Draw(Shader &leafShader, Shader &branchShader,
         model = glm::translate(model, tree.position);
         model = glm::scale(model, glm::vec3(tree.scale));
         model = glm::rotate(model, glm::radians(tree.rotation), glm::vec3(0, 1, 0));
-
-        // LOD: Adjust rendering based on distance
-        // For now, we draw all visible trees fully
-        // TODO: Could dynamically reduce leaf cluster count here
 
         if (lodLevel == 0)
             nearCount++;

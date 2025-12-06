@@ -42,38 +42,35 @@ Fairy::~Fairy()
 
 void Fairy::setupHierarchy()
 {
-
-    float distance = 0.2f;
-
     // Root: Body
     body.position = glm::vec3(0.0f, 5.0f, 5.0f);
     body.scale = glm::vec3(1.0f);
     body.colour = bodyColor;
     body.shininess = bodyShininess;
 
-    // Left upper wing - child of body
-    leftUpperWing.position = glm::vec3(0.15f - distance, 0.15f, 0.0f);
+    // Left upper wing - attach to left side of body
+    leftUpperWing.position = glm::vec3(0.1f, 0.1f, -0.05f); // Slightly back
     leftUpperWing.scale = glm::vec3(1.0f);
     leftUpperWing.colour = wingColor;
     leftUpperWing.shininess = wingShininess;
     leftUpperWing.parent = &body;
 
-    // Left lower wing - child of left upper wing
-    leftLowerWing.position = glm::vec3(0.0f - distance, -0.15f, 0.0f);
+    // Left lower wing - attach BELOW upper wing
+    leftLowerWing.position = glm::vec3(0.05f, -0.2f, 0.0f); // Offset down and slightly out
     leftLowerWing.scale = glm::vec3(1.0f);
     leftLowerWing.colour = wingColor;
     leftLowerWing.shininess = wingShininess;
     leftLowerWing.parent = &leftUpperWing;
 
-    // Right upper wing - child of body
-    rightUpperWing.position = glm::vec3(-0.15f + distance, 0.15f, 0.0f);
+    // Right upper wing - mirror of left
+    rightUpperWing.position = glm::vec3(-0.1f, 0.1f, -0.05f);
     rightUpperWing.scale = glm::vec3(1.0f);
     rightUpperWing.colour = wingColor;
     rightUpperWing.shininess = wingShininess;
     rightUpperWing.parent = &body;
 
-    // Right lower wing - child of right upper wing
-    rightLowerWing.position = glm::vec3(0.0f + distance, -0.15f, 0.0f);
+    // Right lower wing - mirror of left
+    rightLowerWing.position = glm::vec3(-0.05f, -0.2f, 0.0f);
     rightLowerWing.scale = glm::vec3(1.0f);
     rightLowerWing.colour = wingColor;
     rightLowerWing.shininess = wingShininess;
@@ -94,27 +91,27 @@ void Fairy::animateHover(float currentTime, float deltaTime)
 
 void Fairy::animateWings(float currentTime)
 {
-    // Two different phases for upper and lower wings
-    float upperPhase = (sin(currentTime * flapSpeed) + 1.0f) * 0.5f;
-    float lowerPhase = (sin(currentTime * flapSpeed + 0.3f) + 1.0f) * 0.5f; // Slight delay
+    // Smooth flapping motion
+    float t = (sin(currentTime * flapSpeed) + 1.0f) * 0.5f;
+    float smoothT = t * t * (3.0f - 2.0f * t); // Smoothstep
 
-    float maxFlapAngle = 20.0f;
-    float maxLiftAngle = 15.0f;
+    // REDUCED upper wing angle from 30 to 15 degrees
+    float upperFlapAngle = 15.0f;
+    float upperFlap = smoothT * upperFlapAngle;
 
-    // Upper wings
-    float upperFlap = upperPhase * maxFlapAngle;
-    leftUpperWing.rotation.y = upperFlap;
-    rightUpperWing.rotation.y = -upperFlap;
+    leftUpperWing.rotation = glm::vec3(0.0f, upperFlap, 0.0f);
+    rightUpperWing.rotation = glm::vec3(0.0f, -upperFlap, 0.0f);
 
-    // Lower wings - reduced motion, slight phase offset
-    float lowerFlap = lowerPhase * maxFlapAngle * 0.5f; // Half the range
-    float lowerLift = lowerPhase * maxLiftAngle * 0.4f; // Less lift
+    // Lower wings with delay and REDUCED angle
+    float lowerT = (sin(currentTime * flapSpeed - 0.3f) + 1.0f) * 0.5f;
+    float smoothLowerT = lowerT * lowerT * (3.0f - 2.0f * lowerT);
 
-    leftLowerWing.rotation.y = lowerFlap;
-    leftLowerWing.rotation.x = lowerLift;
+    // REDUCED from 20 to 10 degrees
+    float lowerFlapAngle = 10.0f;
+    float lowerFlap = smoothLowerT * lowerFlapAngle;
 
-    rightLowerWing.rotation.y = -lowerFlap;
-    rightLowerWing.rotation.x = lowerLift;
+    leftLowerWing.rotation = glm::vec3(0.0f, lowerFlap, 0.0f);
+    rightLowerWing.rotation = glm::vec3(0.0f, -lowerFlap, 0.0f);
 }
 
 void Fairy::Draw(Shader &shader)
